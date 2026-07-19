@@ -1,29 +1,113 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState, ChangeEvent } from "react";
 
-const categories = [
-  "Production",
-  "Delivery",
-  "Cleaning",
-  "Maintenance",
-  "Office",
-  "Warehouse",
-  "Administration",
-  "Others",
+// ==========================================
+// 1. TYPE DEFINITIONS & INTERFACES
+// ==========================================
+
+type Priority = "High" | "Medium" | "Low";
+type Status = "Pending" | "In progress" | "Completed" | "Cancelled";
+type Shift = "Day" | "Night";
+type PermissionRole = "Admin" | "Staff";
+type Theme = "light" | "dark";
+
+interface Account {
+  username: string;
+  password: string;
+  name: string;
+  roleTitle: string;
+  permissionRole: PermissionRole;
+  shift: Shift;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: Priority;
+  assignee: string;
+  deadline: string;
+  status: Status;
+  notes: string;
+  createdAt: string;
+  createdByRole?: PermissionRole;
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
+}
+
+interface TaskFormState extends Omit<Task, "id" | "createdAt" | "createdByRole"> {
+  id?: string;
+}
+
+interface StockItem {
+  id: string;
+  item: string;
+  unit: string;
+  counted: number;
+  notes: string;
+  date: string;
+}
+
+interface StockFormState {
+  item: string;
+  unit: string;
+  counted: string; // Keep as string for input, convert to number on save
+  notes: string;
+}
+
+interface Meeting {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  attendees: string;
+  notes: string;
+}
+
+interface MaintenanceItem {
+  id: string;
+  equipment: string;
+  issue: string;
+  technician: string;
+  status: Status;
+  date: string;
+  notes: string;
+}
+
+interface ThemeColors {
+  page: string;
+  card: string;
+  cardMuted: string;
+  text: string;
+  muted: string;
+  border: string;
+  borderStrong: string;
+  accent: string;
+  accentBg: string;
+  danger: string;
+}
+
+// ==========================================
+// 2. CONSTANTS & MOCK DATA
+// ==========================================
+
+const categories: string[] = [
+  "Production", "Delivery", "Cleaning", "Maintenance",
+  "Office", "Warehouse", "Administration", "Others",
 ];
-const priorities = ["High", "Medium", "Low"];
-const statuses = ["Pending", "In progress", "Completed", "Cancelled"];
-const shifts = ["Day", "Night"];
+const priorities: Priority[] = ["High", "Medium", "Low"];
+const statuses: Status[] = ["Pending", "In progress", "Completed", "Cancelled"];
+const shifts: Shift[] = ["Day", "Night"];
 
-const statusStyles = {
+const statusStyles: Record<Status, { bg: string; text: string }> = {
   Pending: { bg: "#eef2f8", text: "#5b6b82" },
   "In progress": { bg: "#dbeafe", text: "#1d4ed8" },
   Completed: { bg: "#dcecff", text: "#0c4a8c" },
   Cancelled: { bg: "#fde8e8", text: "#a12626" },
 };
 
-// Demo-only accounts. Plain-text, client-side check for preview purposes —
-// not a real authentication system.
-const accounts = [
+const accounts: Account[] = [
   { username: "ruben", password: "ruben123", name: "Ruben Hina", roleTitle: "Factory Supervisor", permissionRole: "Admin", shift: "Day" },
   { username: "budi", password: "budi123", name: "Budi", roleTitle: "Production Staff", permissionRole: "Staff", shift: "Day" },
   { username: "ani", password: "ani123", name: "Ani", roleTitle: "Maintenance Staff", permissionRole: "Staff", shift: "Day" },
@@ -59,7 +143,7 @@ const t = {
   canAddTask: "Peran ini dapat membuat task baru.",
 };
 
-const sampleTasks = [
+const sampleTasks: Task[] = [
   { id: "1", title: "Clean machine", description: "Bersihkan mesin utama agar siap digunakan.", category: "Production", priority: "High", assignee: "Budi", deadline: "2026-07-17", status: "Completed", notes: "Selesai pagi ini.", createdAt: "2026-07-17", startTime: "08:00", endTime: "09:10", createdByRole: "Admin" },
   { id: "2", title: "Wash mold", description: "Cuci cetakan setelah produksi.", category: "Maintenance", priority: "Medium", assignee: "Ani", deadline: "2026-07-17", status: "Completed", notes: "Tidak ada masalah.", createdAt: "2026-07-17" },
   { id: "3", title: "Prepare delivery", description: "Siapkan barang dan dokumen pengiriman.", category: "Delivery", priority: "High", assignee: "Siti", deadline: "2026-07-17", status: "In progress", notes: "Menunggu armada.", startTime: "10:00", endTime: "12:30", reason: "Tim produksi belum siap mengangkut.", createdAt: "2026-07-17" },
@@ -72,119 +156,98 @@ const sampleTasks = [
   { id: "10", title: "Ice Ball Harvest & Production", description: "Panen dan produksi ice ball.", category: "Production", priority: "High", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Pending", notes: "", reason: "Still Watery", createdAt: "2026-07-18" },
 ];
 
-const sampleStock = [
+const sampleStock: StockItem[] = [
   { id: "1", item: "Es batu kristal", unit: "kg", counted: 120, notes: "Stok aman", date: "2026-07-18" },
   { id: "2", item: "Kantong es", unit: "pcs", counted: 340, notes: "Perlu tambah minggu depan", date: "2026-07-18" },
 ];
 
-const sampleMeetings = [
+const sampleMeetings: Meeting[] = [
   { id: "1", title: "Briefing produksi harian", date: "2026-07-19", time: "07:30", attendees: "Ruben Hina, Budi, Siti", notes: "Bahas target produksi hari ini." },
 ];
 
-const sampleMaintenance = [
+const sampleMaintenance: MaintenanceItem[] = [
   { id: "1", equipment: "Mesin ice ball", issue: "Suara berisik saat beroperasi", technician: "Dedi", status: "In progress", date: "2026-07-18", notes: "Menunggu spare part." },
 ];
 
-const formatDate = (dateString) => {
+// ==========================================
+// 3. HELPER FUNCTIONS
+// ==========================================
+
+const formatDate = (dateString: string | undefined): string => {
   if (!dateString) return "-";
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 };
 
-const formatDateShort = (date) => date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const formatDateShort = (date: Date): string => 
+  date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-const formatTimeRange = (task) => {
+const formatTimeRange = (task: Task): string => {
   if (!task.startTime && !task.endTime) return "";
   return `${task.startTime || "-"} - ${task.endTime || "-"}`;
 };
 
-const getTaskDuration = (task) => {
+const getTaskDuration = (task: Task): string => {
   if (!task.startTime || !task.endTime) return "";
   const [startHour, startMinute] = task.startTime.split(":").map(Number);
   const [endHour, endMinute] = task.endTime.split(":").map(Number);
   const startMinutes = startHour * 60 + startMinute;
   const endMinutes = endHour * 60 + endMinute;
+  
   if (isNaN(startMinutes) || isNaN(endMinutes) || endMinutes < startMinutes) return "";
+  
   const diff = endMinutes - startMinutes;
   const hours = Math.floor(diff / 60);
   const minutes = diff % 60;
   return `${hours ? `${hours}j` : ""}${hours && minutes ? " " : ""}${minutes ? `${minutes}m` : ""}`.trim();
 };
 
-// Light-blue theme tokens.
-const getColors = (theme) =>
+const getColors = (theme: Theme): ThemeColors =>
   theme === "light"
     ? {
-        page: "#EAF3FC",
-        card: "#FFFFFF",
-        cardMuted: "#F0F7FE",
-        text: "#16324A",
-        muted: "#5B7690",
-        border: "rgba(22,50,74,0.10)",
-        borderStrong: "rgba(22,50,74,0.20)",
-        accent: "#2F7FE0",
-        accentBg: "#DCEBFB",
-        danger: "#B33636",
+        page: "#EAF3FC", card: "#FFFFFF", cardMuted: "#F0F7FE", text: "#16324A", muted: "#5B7690",
+        border: "rgba(22,50,74,0.10)", borderStrong: "rgba(22,50,74,0.20)", accent: "#2F7FE0", accentBg: "#DCEBFB", danger: "#B33636",
       }
     : {
-        page: "#0E1B2B",
-        card: "#152840",
-        cardMuted: "#1B324E",
-        text: "#EAF3FC",
-        muted: "#93AFC9",
-        border: "rgba(234,243,252,0.10)",
-        borderStrong: "rgba(234,243,252,0.20)",
-        accent: "#7DD3FC",
-        accentBg: "#1E3A57",
-        danger: "#E8A0A0",
+        page: "#0E1B2B", card: "#152840", cardMuted: "#1B324E", text: "#EAF3FC", muted: "#93AFC9",
+        border: "rgba(234,243,252,0.10)", borderStrong: "rgba(234,243,252,0.20)", accent: "#7DD3FC", accentBg: "#1E3A57", danger: "#E8A0A0",
       };
 
-const fieldStyle = (colors) => ({
-  width: "100%",
-  borderRadius: 8,
-  border: `0.5px solid ${colors.border}`,
-  padding: "9px 12px",
-  background: colors.cardMuted,
-  color: colors.text,
-  fontSize: 14,
-  fontFamily: "inherit",
+const fieldStyle = (colors: ThemeColors): React.CSSProperties => ({
+  width: "100%", borderRadius: 8, border: `0.5px solid ${colors.border}`, padding: "9px 12px",
+  background: colors.cardMuted, color: colors.text, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box",
 });
 
-const secondaryButton = (colors) => ({
-  borderRadius: 8,
-  border: `0.5px solid ${colors.borderStrong}`,
-  padding: "9px 14px",
-  background: "transparent",
-  color: colors.text,
-  cursor: "pointer",
-  fontSize: 14,
+const secondaryButton = (colors: ThemeColors): React.CSSProperties => ({
+  borderRadius: 8, border: `0.5px solid ${colors.borderStrong}`, padding: "9px 14px",
+  background: "transparent", color: colors.text, cursor: "pointer", fontSize: 14,
 });
 
-const primaryButton = (colors) => ({
-  borderRadius: 8,
-  border: "none",
-  padding: "10px 16px",
-  background: colors.accent,
-  color: "#FFFFFF",
-  cursor: "pointer",
-  fontSize: 14,
+const primaryButton = (colors: ThemeColors): React.CSSProperties => ({
+  borderRadius: 8, border: "none", padding: "10px 16px", background: colors.accent,
+  color: "#FFFFFF", cursor: "pointer", fontSize: 14,
 });
 
-const tabButton = (colors, active) => ({
-  borderRadius: 8,
-  border: active ? "none" : `0.5px solid ${colors.borderStrong}`,
-  padding: "8px 14px",
-  background: active ? colors.accent : "transparent",
-  color: active ? "#FFFFFF" : colors.text,
-  cursor: "pointer",
-  fontSize: 14,
+const tabButton = (colors: ThemeColors, active: boolean): React.CSSProperties => ({
+  borderRadius: 8, border: active ? "none" : `0.5px solid ${colors.borderStrong}`, padding: "8px 14px",
+  background: active ? colors.accent : "transparent", color: active ? "#FFFFFF" : colors.text,
+  cursor: "pointer", fontSize: 14,
 });
 
-function LoginScreen({ colors, onLogin }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+// ==========================================
+// 4. COMPONENTS
+// ==========================================
+
+interface LoginScreenProps {
+  colors: ThemeColors;
+  onLogin: (account: Account) => void;
+}
+
+function LoginScreen({ colors, onLogin }: LoginScreenProps) {
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
   const submit = () => {
     const match = accounts.find(
@@ -201,28 +264,19 @@ function LoginScreen({ colors, onLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 24, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <div style={{ width: 320, background: colors.card, borderRadius: 12, border: `0.5px solid ${colors.border}`, padding: 24 }}>
-        <div
-          style={{
-            fontSize: 26,
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontWeight: 700,
-            letterSpacing: "0.04em",
-            color: colors.accent,
-            marginBottom: 4,
-          }}
-        >
+        <div style={{ fontSize: 26, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, marginBottom: 4 }}>
           BLUE TICK ICE
         </div>
         <div style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>Masuk untuk melihat task kamu</div>
         <div style={{ display: "grid", gap: 10 }}>
-          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" style={fieldStyle(colors)} />
+          <input value={username} onChange={(e: ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)} placeholder="Username" style={fieldStyle(colors)} />
           <input
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
             placeholder="Password"
             type="password"
             style={fieldStyle(colors)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && submit()}
           />
           {error && <div style={{ fontSize: 12, color: colors.danger }}>{error}</div>}
           <button onClick={submit} style={primaryButton(colors)}>Masuk</button>
@@ -237,43 +291,35 @@ function LoginScreen({ colors, onLogin }) {
 }
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [theme, setTheme] = useState("light");
+  const [currentUser, setCurrentUser] = useState<Account | null>(null);
+  const [theme, setTheme] = useState<Theme>("light");
   const colors = getColors(theme);
-  const [activeTab, setActiveTab] = useState("tasks");
-  const [logoUrl, setLogoUrl] = useState(null);
+  const [activeTab, setActiveTab] = useState<string>("tasks");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-  const [tasks, setTasks] = useState(sampleTasks);
-  const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState("All");
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [filterPriority, setFilterPriority] = useState("All");
-  const [adminViewUser, setAdminViewUser] = useState("Semua");
+  const [tasks, setTasks] = useState<Task[]>(sampleTasks);
+  const [search, setSearch] = useState<string>("");
+  const [filterCategory, setFilterCategory] = useState<string>("All");
+  const [filterStatus, setFilterStatus] = useState<string>("All");
+  const [filterPriority, setFilterPriority] = useState<string>("All");
+  const [adminViewUser, setAdminViewUser] = useState<string>("Semua");
 
-  const [taskForm, setTaskForm] = useState({
-    title: "",
-    description: "",
-    category: "Production",
-    priority: "Medium",
-    assignee: "",
-    deadline: new Date().toISOString().slice(0, 10),
-    status: "Pending",
-    notes: "",
-    startTime: "",
-    endTime: "",
-    reason: "",
+  const [taskForm, setTaskForm] = useState<TaskFormState>({
+    title: "", description: "", category: "Production", priority: "Medium", assignee: "",
+    deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "",
+    startTime: "", endTime: "", reason: "",
   });
 
-  const [stockItems, setStockItems] = useState(sampleStock);
-  const [stockForm, setStockForm] = useState({ item: "", unit: "", counted: "", notes: "" });
+  const [stockItems, setStockItems] = useState<StockItem[]>(sampleStock);
+  const [stockForm, setStockForm] = useState<StockFormState>({ item: "", unit: "", counted: "", notes: "" });
 
-  const [meetings, setMeetings] = useState(sampleMeetings);
-  const [meetingForm, setMeetingForm] = useState({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
+  const [meetings, setMeetings] = useState<Meeting[]>(sampleMeetings);
+  const [meetingForm, setMeetingForm] = useState<Omit<Meeting, "id">>({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
 
-  const [maintenanceItems, setMaintenanceItems] = useState(sampleMaintenance);
-  const [maintenanceForm, setMaintenanceForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" });
+  const [maintenanceItems, setMaintenanceItems] = useState<MaintenanceItem[]>(sampleMaintenance);
+  const [maintenanceForm, setMaintenanceForm] = useState<Omit<MaintenanceItem, "id" | "date">>({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" });
 
-  const userOptions = useMemo(() => {
+  const userOptions: string[] = useMemo(() => {
     const names = Array.from(new Set(tasks.map((task) => task.assignee).filter(Boolean)));
     return ["Semua", ...names];
   }, [tasks]);
@@ -290,19 +336,13 @@ export default function App() {
     );
   }
 
-  const role = currentUser.permissionRole;
-  // Staff always sees only their own tasks; Admin can browse everyone or one person.
-  const selectedUser = role === "Staff" ? currentUser.name : adminViewUser;
-
-  const today = new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+  const role: PermissionRole = currentUser.permissionRole;
+  const selectedUser: string = role === "Staff" ? currentUser.name : adminViewUser;
+  const today: string = new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
 
   const filteredTasks = tasks
     .filter((task) => {
-      const matchesSearch =
-        !search ||
-        task.title.toLowerCase().includes(search.toLowerCase()) ||
-        task.description.toLowerCase().includes(search.toLowerCase()) ||
-        task.assignee.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = !search || task.title.toLowerCase().includes(search.toLowerCase()) || task.description.toLowerCase().includes(search.toLowerCase()) || task.assignee.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = filterCategory === "All" || task.category === filterCategory;
       const matchesStatus = filterStatus === "All" || task.status === filterStatus;
       const matchesPriority = filterPriority === "All" || task.priority === filterPriority;
@@ -310,7 +350,7 @@ export default function App() {
       return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesUser;
     })
     .sort((a, b) => {
-      const order = { High: 0, Medium: 1, Low: 2 };
+      const order: Record<Priority, number> = { High: 0, Medium: 1, Low: 2 };
       return order[a.priority] - order[b.priority];
     });
 
@@ -323,36 +363,27 @@ export default function App() {
   const taskLimitReached = roleTaskCount >= taskLimit;
   const completionPercent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const handleFormChange = (field, value) => setTaskForm((prev) => ({ ...prev, [field]: value }));
+  const handleFormChange = <K extends keyof TaskFormState>(field: K, value: string) => {
+    setTaskForm((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSaveTask = () => {
-    if (!taskForm.title?.trim()) {
-      window.alert(t.alertTitleRequired);
-      return;
-    }
-    if (!taskForm.assignee?.trim()) {
-      window.alert(t.alertAssigneeRequired);
-      return;
-    }
+    if (!taskForm.title?.trim()) { window.alert(t.alertTitleRequired); return; }
+    if (!taskForm.assignee?.trim()) { window.alert(t.alertAssigneeRequired); return; }
+    
     const isNew = !taskForm.id;
-    if (isNew && taskLimitReached) {
-      window.alert(`Batas ${taskLimit} tugas untuk peran ${role} telah tercapai.`);
-      return;
-    }
-    if (!isNew && role !== "Admin") {
-      window.alert("Edit tugas hanya diperbolehkan oleh admin.");
-      return;
-    }
+    if (isNew && taskLimitReached) { window.alert(`Batas ${taskLimit} tugas untuk peran ${role} telah tercapai.`); return; }
+    if (!isNew && role !== "Admin") { window.alert("Edit tugas hanya diperbolehkan oleh admin."); return; }
 
-    const normalizedTask = {
+    const normalizedTask: Task = {
       id: taskForm.id || String(Date.now()),
       title: taskForm.title,
       description: taskForm.description || "",
       category: taskForm.category || "Production",
-      priority: taskForm.priority || "Medium",
+      priority: (taskForm.priority as Priority) || "Medium",
       assignee: taskForm.assignee,
       deadline: taskForm.deadline || new Date().toISOString().slice(0, 10),
-      status: taskForm.status || "Pending",
+      status: (taskForm.status as Status) || "Pending",
       notes: taskForm.notes || "",
       createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10),
       createdByRole: taskForm.createdByRole || role,
@@ -368,22 +399,14 @@ export default function App() {
     });
 
     setTaskForm({
-      title: "",
-      description: "",
-      category: "Production",
-      priority: "Medium",
-      assignee: role === "Staff" ? currentUser.name : "",
-      deadline: new Date().toISOString().slice(0, 10),
-      status: "Pending",
-      notes: "",
-      startTime: "",
-      endTime: "",
-      reason: "",
+      title: "", description: "", category: "Production", priority: "Medium",
+      assignee: role === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10),
+      status: "Pending", notes: "", startTime: "", endTime: "", reason: "",
     });
   };
 
-  const handleEditTask = (task) => setTaskForm(task);
-  const handleDeleteTask = (id) => setTasks((prev) => prev.filter((task) => task.id !== id));
+  const handleEditTask = (task: Task) => setTaskForm(task);
+  const handleDeleteTask = (id: string) => setTasks((prev) => prev.filter((task) => task.id !== id));
 
   const handleResetDatesTimes = () => {
     if (window.confirm(t.resetConfirm)) {
@@ -391,7 +414,7 @@ export default function App() {
     }
   };
 
-  const handleStatusToggle = (task) => {
+  const handleStatusToggle = (task: Task) => {
     if (role === "Staff" && task.assignee === currentUser.name) {
       setTasks((prev) =>
         prev.map((item) =>
@@ -401,7 +424,7 @@ export default function App() {
     }
   };
 
-  const handleLogoUpload = (e) => {
+  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -413,10 +436,8 @@ export default function App() {
 
   const shareWhatsApp = () => {
     const reportUser = role === "Staff" ? currentUser.name : adminViewUser;
-    if (reportUser === "Semua") {
-      window.alert("Pilih satu user terlebih dahulu untuk membuat laporan.");
-      return;
-    }
+    if (reportUser === "Semua") { window.alert("Pilih satu user terlebih dahulu untuk membuat laporan."); return; }
+    
     const userTasks = tasks.filter((task) => task.assignee === reportUser);
     const completedTasks = userTasks.filter((task) => task.status === "Completed");
     const pendingTasks = userTasks.filter((task) => task.status === "Pending" || task.status === "In progress");
@@ -427,8 +448,9 @@ export default function App() {
 
     const now = new Date();
     const divider = "━━━━━━━━━━━━━━━━━━";
-    const reportRoleTitle = role === "Staff" ? currentUser.roleTitle : (accounts.find((a) => a.name === reportUser)?.roleTitle || "Staff");
-    const reportShift = role === "Staff" ? currentUser.shift : (accounts.find((a) => a.name === reportUser)?.shift || "Day");
+    const accountData = accounts.find((a) => a.name === reportUser);
+    const reportRoleTitle = role === "Staff" ? currentUser.roleTitle : (accountData?.roleTitle || "Staff");
+    const reportShift = role === "Staff" ? currentUser.shift : (accountData?.shift || "Day");
 
     const completedLines = completedTasks.flatMap((task, index) => {
       const time = task.endTime || task.startTime || "-";
@@ -444,24 +466,11 @@ export default function App() {
     });
 
     const lines = [
-      "📋 DAILY TASK REPORT",
-      `👤 Employee : ${reportUser.toUpperCase()}`,
-      `💼 Role : ${reportRoleTitle}`,
-      `🕒 Shift : ${reportShift}`,
-      `📅 Date : ${formatDateShort(now)}`,
-      divider,
-      "📊 TASK SUMMARY",
-      `📌 Assigned : ${assigned}`,
-      `✅ Completed : ${completed}`,
-      `⏳ Pending : ${pending}`,
-      `📈 Completion Rate : ${rate}%`,
-      divider,
-      "✅ COMPLETED TASKS",
-      ...(completedLines.length ? completedLines : ["-"]),
-      divider,
-      "⏳ PENDING TASKS",
-      ...(pendingLines.length ? pendingLines : ["-"]),
-      divider,
+      "📋 DAILY TASK REPORT", `👤 Employee : ${reportUser.toUpperCase()}`, `💼 Role : ${reportRoleTitle}`,
+      `🕒 Shift : ${reportShift}`, `📅 Date : ${formatDateShort(now)}`, divider, "📊 TASK SUMMARY",
+      `📌 Assigned : ${assigned}`, `✅ Completed : ${completed}`, `⏳ Pending : ${pending}`, `📈 Completion Rate : ${rate}%`,
+      divider, "✅ COMPLETED TASKS", ...(completedLines.length ? completedLines : ["-"]), divider,
+      "⏳ PENDING TASKS", ...(pendingLines.length ? pendingLines : ["-"]), divider,
       `📤 Submitted by: ${reportUser.toUpperCase()}`,
       `🕒 Submitted: ${formatDateShort(now)} | ${now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`,
     ].join("\n");
@@ -469,7 +478,7 @@ export default function App() {
     window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
   };
 
-  const filterRowStyle = { marginBottom: 16, display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" };
+  const filterRowStyle: React.CSSProperties = { marginBottom: 16, display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" };
 
   return (
     <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: 24, transition: "background 0.2s, color 0.2s" }}>
@@ -479,55 +488,21 @@ export default function App() {
         <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ position: "relative" }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 10,
-                  background: colors.accentBg,
-                  color: colors.accent,
-                  display: "grid",
-                  placeItems: "center",
-                  fontSize: 18,
-                  fontWeight: 500,
-                  overflow: "hidden",
-                }}
-              >
+              <div style={{ width: 44, height: 44, borderRadius: 10, background: colors.accentBg, color: colors.accent, display: "grid", placeItems: "center", fontSize: 18, fontWeight: 500, overflow: "hidden" }}>
                 {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "✓"}
               </div>
-              <label
-                title="Ganti logo"
-                style={{
-                  position: "absolute",
-                  bottom: -4,
-                  right: -4,
-                  width: 18,
-                  height: 18,
-                  borderRadius: "50%",
-                  background: colors.accent,
-                  color: "#fff",
-                  display: "grid",
-                  placeItems: "center",
-                  fontSize: 11,
-                  cursor: "pointer",
-                  border: `2px solid ${colors.page}`,
-                }}
-              >
+              <label title="Ganti logo" style={{ position: "absolute", bottom: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: colors.accent, color: "#fff", display: "grid", placeItems: "center", fontSize: 11, cursor: "pointer", border: `2px solid ${colors.page}` }}>
                 +
                 <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
               </label>
             </div>
             <div>
               <div style={{ fontSize: 13, color: colors.muted }}>Daily operation task</div>
-              <div style={{ fontSize: 30, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, lineHeight: 1 }}>
-                BLUE TICK ICE
-              </div>
+              <div style={{ fontSize: 30, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, lineHeight: 1 }}>BLUE TICK ICE</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 13, color: colors.muted, marginRight: 4 }}>
-              {currentUser.name} · {currentUser.roleTitle}
-            </div>
+            <div style={{ fontSize: 13, color: colors.muted, marginRight: 4 }}>{currentUser.name} · {currentUser.roleTitle}</div>
             <button onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))} style={secondaryButton(colors)}>
               {theme === "light" ? t.darkMode : t.lightMode}
             </button>
@@ -536,25 +511,16 @@ export default function App() {
         </header>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {[
-            ["tasks", "Tasks"],
-            ["stock", "Stok opname"],
-            ["meeting", "Meeting"],
-            ["maintenance", "Maintenance"],
-          ].map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} style={tabButton(colors, activeTab === key)}>
-              {label}
-            </button>
+          {[["tasks", "Tasks"], ["stock", "Stok opname"], ["meeting", "Meeting"], ["maintenance", "Maintenance"]].map(([key, label]) => (
+            <button key={key} onClick={() => setActiveTab(key)} style={tabButton(colors, activeTab === key)}>{label}</button>
           ))}
         </div>
 
         {role === "Admin" && (
           <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
             <div style={{ fontSize: 13, color: colors.muted, minWidth: 90 }}>Lihat sebagai</div>
-            <select value={adminViewUser} onChange={(e) => setAdminViewUser(e.target.value)} style={{ ...fieldStyle(colors), width: 180, cursor: "pointer" }}>
-              {userOptions.map((name) => (
-                <option key={name} value={name}>{name}</option>
-              ))}
+            <select value={adminViewUser} onChange={(e: ChangeEvent<HTMLSelectElement>) => setAdminViewUser(e.target.value)} style={{ ...fieldStyle(colors), width: 180, cursor: "pointer" }}>
+              {userOptions.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
             <button onClick={handleResetDatesTimes} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger, marginLeft: "auto" }}>
               Reset tanggal &amp; jam semua task
@@ -568,22 +534,10 @@ export default function App() {
               <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
                 <div style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>{t.dashboard} · {today}</div>
                 <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.totalTasks}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{totalCount}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.completed}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{completedCount}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.remaining}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{remainingCount}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.pending}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{pendingCount}</span>
-                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 14, color: colors.muted }}>{t.totalTasks}</span><span style={{ fontSize: 14, fontWeight: 500 }}>{totalCount}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 14, color: colors.muted }}>{t.completed}</span><span style={{ fontSize: 14, fontWeight: 500 }}>{completedCount}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 14, color: colors.muted }}>{t.remaining}</span><span style={{ fontSize: 14, fontWeight: 500 }}>{remainingCount}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 14, color: colors.muted }}>{t.pending}</span><span style={{ fontSize: 14, fontWeight: 500 }}>{pendingCount}</span></div>
                 </div>
               </div>
               <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
@@ -612,16 +566,16 @@ export default function App() {
                 </div>
 
                 <div style={filterRowStyle}>
-                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari tugas" style={{ ...fieldStyle(colors), gridColumn: "span 2" }} />
-                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  <input value={search} onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Cari tugas" style={{ ...fieldStyle(colors), gridColumn: "span 2" }} />
+                  <select value={filterCategory} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterCategory(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                     <option>All</option>
                     {categories.map((c) => <option key={c}>{c}</option>)}
                   </select>
-                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  <select value={filterStatus} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                     <option>All</option>
                     {statuses.map((s) => <option key={s}>{s}</option>)}
                   </select>
-                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer", gridColumn: "1 / -1" }}>
+                  <select value={filterPriority} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterPriority(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer", gridColumn: "1 / -1" }}>
                     <option>All</option>
                     {priorities.map((p) => <option key={p}>{p}</option>)}
                   </select>
@@ -635,31 +589,21 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                           <div>
                             <div style={{ fontSize: 15, fontWeight: 500 }}>{task.title}</div>
-                            <div style={{ color: colors.muted, marginTop: 4, fontSize: 13 }}>
-                              {task.category} · {task.priority} · {task.assignee}
-                            </div>
+                            <div style={{ color: colors.muted, marginTop: 4, fontSize: 13 }}>{task.category} · {task.priority} · {task.assignee}</div>
                           </div>
-                          <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", height: "fit-content" }}>
-                            {task.status}
-                          </span>
+                          <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", height: "fit-content" }}>{task.status}</span>
                         </div>
-
                         <div style={{ marginTop: 10, color: colors.muted, fontSize: 13 }}>{task.description}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
                           <div style={{ fontSize: 12, color: colors.muted }}>Deadline: {formatDate(task.deadline)}</div>
                           <div style={{ fontSize: 12, color: colors.muted }}>Dibuat: {formatDate(task.createdAt)}</div>
                           {(task.startTime || task.endTime) && (
-                            <div style={{ fontSize: 12, color: colors.muted }}>
-                              Waktu: {formatTimeRange(task)}{getTaskDuration(task) ? ` (${getTaskDuration(task)})` : ""}
-                            </div>
+                            <div style={{ fontSize: 12, color: colors.muted }}>Waktu: {formatTimeRange(task)}{getTaskDuration(task) ? ` (${getTaskDuration(task)})` : ""}</div>
                           )}
                         </div>
                         {(task.status === "Pending" || task.status === "In progress") && task.reason && (
-                          <div style={{ marginTop: 10, padding: "8px 10px", color: colors.text, background: colors.card, borderRadius: 8, fontSize: 12, border: `0.5px solid ${colors.border}` }}>
-                            Alasan: {task.reason}
-                          </div>
+                          <div style={{ marginTop: 10, padding: "8px 10px", color: colors.text, background: colors.card, borderRadius: 8, fontSize: 12, border: `0.5px solid ${colors.border}` }}>Alasan: {task.reason}</div>
                         )}
-
                         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
                           {(role === "Admin" || task.assignee === currentUser.name) && (
                             <button onClick={() => handleStatusToggle(task)} style={primaryButton(colors)} disabled={role !== "Staff"}>
@@ -673,11 +617,10 @@ export default function App() {
                             </>
                           )}
                         </div>
-
                         <div style={{ marginTop: 12 }}>
                           <textarea
                             value={task.notes}
-                            onChange={(e) => setTasks((prev) => prev.map((item) => (item.id === task.id ? { ...item, notes: e.target.value } : item)))}
+                            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTasks((prev) => prev.map((item) => (item.id === task.id ? { ...item, notes: e.target.value } : item)))}
                             placeholder="Catatan tambahan"
                             style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical", background: colors.card }}
                           />
@@ -695,42 +638,29 @@ export default function App() {
                   <div style={{ color: colors.muted, fontSize: 13 }}>{t.adminStaffNote}</div>
                 </div>
                 <div style={{ display: "grid", gap: 10 }}>
-                  <input value={taskForm.title} onChange={(e) => handleFormChange("title", e.target.value)} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
-                  <textarea value={taskForm.description} onChange={(e) => handleFormChange("description", e.target.value)} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
-                  <select value={taskForm.category} onChange={(e) => handleFormChange("category", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  <input value={taskForm.title} onChange={(e: ChangeEvent<HTMLInputElement>) => handleFormChange("title", e.target.value)} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
+                  <textarea value={taskForm.description} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleFormChange("description", e.target.value)} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
+                  <select value={taskForm.category} onChange={(e: ChangeEvent<HTMLSelectElement>) => handleFormChange("category", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                     {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <select value={taskForm.priority} onChange={(e) => handleFormChange("priority", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  <select value={taskForm.priority} onChange={(e: ChangeEvent<HTMLSelectElement>) => handleFormChange("priority", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                     {priorities.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  <input
-                    value={taskForm.assignee}
-                    onChange={(e) => handleFormChange("assignee", e.target.value)}
-                    placeholder={t.assigneePlaceholder}
-                    style={fieldStyle(colors)}
-                    disabled={role === "Staff"}
-                  />
-                  <input value={taskForm.deadline} onChange={(e) => handleFormChange("deadline", e.target.value)} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
-                  <select value={taskForm.status} onChange={(e) => handleFormChange("status", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  <input value={taskForm.assignee} onChange={(e: ChangeEvent<HTMLInputElement>) => handleFormChange("assignee", e.target.value)} placeholder={t.assigneePlaceholder} style={fieldStyle(colors)} disabled={role === "Staff"} />
+                  <input value={taskForm.deadline} onChange={(e: ChangeEvent<HTMLInputElement>) => handleFormChange("deadline", e.target.value)} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
+                  <select value={taskForm.status} onChange={(e: ChangeEvent<HTMLSelectElement>) => handleFormChange("status", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                     {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <textarea value={taskForm.notes} onChange={(e) => handleFormChange("notes", e.target.value)} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
+                  <textarea value={taskForm.notes} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleFormChange("notes", e.target.value)} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <input type="time" value={taskForm.startTime || ""} onChange={(e) => handleFormChange("startTime", e.target.value)} style={fieldStyle(colors)} />
-                    <input type="time" value={taskForm.endTime || ""} onChange={(e) => handleFormChange("endTime", e.target.value)} style={fieldStyle(colors)} />
+                    <input type="time" value={taskForm.startTime || ""} onChange={(e: ChangeEvent<HTMLInputElement>) => handleFormChange("startTime", e.target.value)} style={fieldStyle(colors)} />
+                    <input type="time" value={taskForm.endTime || ""} onChange={(e: ChangeEvent<HTMLInputElement>) => handleFormChange("endTime", e.target.value)} style={fieldStyle(colors)} />
                   </div>
-                  <textarea value={taskForm.reason} onChange={(e) => handleFormChange("reason", e.target.value)} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
-                  <button
-                    type="button"
-                    onClick={handleSaveTask}
-                    disabled={taskLimitReached && !taskForm.id}
-                    style={{ ...primaryButton(colors), cursor: taskLimitReached && !taskForm.id ? "not-allowed" : "pointer", opacity: taskLimitReached && !taskForm.id ? 0.6 : 1 }}
-                  >
+                  <textarea value={taskForm.reason} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleFormChange("reason", e.target.value)} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
+                  <button type="button" onClick={handleSaveTask} disabled={taskLimitReached && !taskForm.id} style={{ ...primaryButton(colors), cursor: taskLimitReached && !taskForm.id ? "not-allowed" : "pointer", opacity: taskLimitReached && !taskForm.id ? 0.6 : 1 }}>
                     {taskForm.id ? t.saveChanges : t.addTask}
                   </button>
-                  <div style={{ color: colors.muted, fontSize: 12 }}>
-                    {roleTaskCount}/{taskLimit} {t.taskCreatedByRole} {role}. {taskLimitReached ? t.limitReached : t.canAddTask}
-                  </div>
+                  <div style={{ color: colors.muted, fontSize: 12 }}>{roleTaskCount}/{taskLimit} {t.taskCreatedByRole} {role}. {taskLimitReached ? t.limitReached : t.canAddTask}</div>
                 </div>
               </aside>
             </section>
@@ -762,25 +692,20 @@ export default function App() {
             </div>
             <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
               <div style={{ fontSize: 16, fontWeight: 500 }}>Tambah data stok</div>
-              <input value={stockForm.item} onChange={(e) => setStockForm((p) => ({ ...p, item: e.target.value }))} placeholder="Nama item" style={fieldStyle(colors)} />
+              <input value={stockForm.item} onChange={(e: ChangeEvent<HTMLInputElement>) => setStockForm((p) => ({ ...p, item: e.target.value }))} placeholder="Nama item" style={fieldStyle(colors)} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <input value={stockForm.counted} onChange={(e) => setStockForm((p) => ({ ...p, counted: e.target.value }))} placeholder="Jumlah" type="number" style={fieldStyle(colors)} />
-                <input value={stockForm.unit} onChange={(e) => setStockForm((p) => ({ ...p, unit: e.target.value }))} placeholder="Satuan" style={fieldStyle(colors)} />
+                <input value={stockForm.counted} onChange={(e: ChangeEvent<HTMLInputElement>) => setStockForm((p) => ({ ...p, counted: e.target.value }))} placeholder="Jumlah" type="number" style={fieldStyle(colors)} />
+                <input value={stockForm.unit} onChange={(e: ChangeEvent<HTMLInputElement>) => setStockForm((p) => ({ ...p, unit: e.target.value }))} placeholder="Satuan" style={fieldStyle(colors)} />
               </div>
-              <textarea value={stockForm.notes} onChange={(e) => setStockForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <textarea value={stockForm.notes} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setStockForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
               <button
                 onClick={() => {
-                  if (!stockForm.item.trim()) {
-                    window.alert("Nama item wajib diisi.");
-                    return;
-                  }
-                  setStockItems((prev) => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, counted: stockForm.counted || 0, notes: stockForm.notes, date: new Date().toISOString().slice(0, 10) }, ...prev]);
+                  if (!stockForm.item.trim()) { window.alert("Nama item wajib diisi."); return; }
+                  setStockItems((prev) => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, counted: Number(stockForm.counted) || 0, notes: stockForm.notes, date: new Date().toISOString().slice(0, 10) }, ...prev]);
                   setStockForm({ item: "", unit: "", counted: "", notes: "" });
                 }}
                 style={primaryButton(colors)}
-              >
-                Tambah stok
-              </button>
+              >Tambah stok</button>
             </aside>
           </section>
         )}
@@ -806,26 +731,21 @@ export default function App() {
             </div>
             <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
               <div style={{ fontSize: 16, fontWeight: 500 }}>Jadwalkan meeting</div>
-              <input value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} placeholder="Judul meeting" style={fieldStyle(colors)} />
+              <input value={meetingForm.title} onChange={(e: ChangeEvent<HTMLInputElement>) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} placeholder="Judul meeting" style={fieldStyle(colors)} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <input value={meetingForm.date} onChange={(e) => setMeetingForm((p) => ({ ...p, date: e.target.value }))} type="date" style={fieldStyle(colors)} />
-                <input value={meetingForm.time} onChange={(e) => setMeetingForm((p) => ({ ...p, time: e.target.value }))} type="time" style={fieldStyle(colors)} />
+                <input value={meetingForm.date} onChange={(e: ChangeEvent<HTMLInputElement>) => setMeetingForm((p) => ({ ...p, date: e.target.value }))} type="date" style={fieldStyle(colors)} />
+                <input value={meetingForm.time} onChange={(e: ChangeEvent<HTMLInputElement>) => setMeetingForm((p) => ({ ...p, time: e.target.value }))} type="time" style={fieldStyle(colors)} />
               </div>
-              <input value={meetingForm.attendees} onChange={(e) => setMeetingForm((p) => ({ ...p, attendees: e.target.value }))} placeholder="Peserta (pisahkan dengan koma)" style={fieldStyle(colors)} />
-              <textarea value={meetingForm.notes} onChange={(e) => setMeetingForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Agenda atau catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <input value={meetingForm.attendees} onChange={(e: ChangeEvent<HTMLInputElement>) => setMeetingForm((p) => ({ ...p, attendees: e.target.value }))} placeholder="Peserta (pisahkan dengan koma)" style={fieldStyle(colors)} />
+              <textarea value={meetingForm.notes} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMeetingForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Agenda atau catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
               <button
                 onClick={() => {
-                  if (!meetingForm.title.trim()) {
-                    window.alert("Judul meeting wajib diisi.");
-                    return;
-                  }
+                  if (!meetingForm.title.trim()) { window.alert("Judul meeting wajib diisi."); return; }
                   setMeetings((prev) => [{ id: String(Date.now()), ...meetingForm }, ...prev]);
                   setMeetingForm({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
                 }}
                 style={primaryButton(colors)}
-              >
-                Tambah meeting
-              </button>
+              >Tambah meeting</button>
             </aside>
           </section>
         )}
@@ -836,7 +756,7 @@ export default function App() {
               <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>Maintenance</div>
               <div style={{ display: "grid", gap: 10 }}>
                 {maintenanceItems.map((m) => {
-                  const badge = statusStyles[m.status] || statusStyles.Pending;
+                  const badge = statusStyles[m.status as Status] || statusStyles.Pending;
                   return (
                     <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -857,26 +777,21 @@ export default function App() {
             </div>
             <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
               <div style={{ fontSize: 16, fontWeight: 500 }}>Tambah maintenance</div>
-              <input value={maintenanceForm.equipment} onChange={(e) => setMaintenanceForm((p) => ({ ...p, equipment: e.target.value }))} placeholder="Nama mesin atau alat" style={fieldStyle(colors)} />
-              <textarea value={maintenanceForm.issue} onChange={(e) => setMaintenanceForm((p) => ({ ...p, issue: e.target.value }))} placeholder="Deskripsi masalah" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
-              <input value={maintenanceForm.technician} onChange={(e) => setMaintenanceForm((p) => ({ ...p, technician: e.target.value }))} placeholder="Teknisi" style={fieldStyle(colors)} />
-              <select value={maintenanceForm.status} onChange={(e) => setMaintenanceForm((p) => ({ ...p, status: e.target.value }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+              <input value={maintenanceForm.equipment} onChange={(e: ChangeEvent<HTMLInputElement>) => setMaintenanceForm((p) => ({ ...p, equipment: e.target.value }))} placeholder="Nama mesin atau alat" style={fieldStyle(colors)} />
+              <textarea value={maintenanceForm.issue} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMaintenanceForm((p) => ({ ...p, issue: e.target.value }))} placeholder="Deskripsi masalah" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <input value={maintenanceForm.technician} onChange={(e: ChangeEvent<HTMLInputElement>) => setMaintenanceForm((p) => ({ ...p, technician: e.target.value }))} placeholder="Teknisi" style={fieldStyle(colors)} />
+              <select value={maintenanceForm.status} onChange={(e: ChangeEvent<HTMLSelectElement>) => setMaintenanceForm((p) => ({ ...p, status: e.target.value as Status }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                 {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              <textarea value={maintenanceForm.notes} onChange={(e) => setMaintenanceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
+              <textarea value={maintenanceForm.notes} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMaintenanceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
               <button
                 onClick={() => {
-                  if (!maintenanceForm.equipment.trim()) {
-                    window.alert("Nama mesin atau alat wajib diisi.");
-                    return;
-                  }
+                  if (!maintenanceForm.equipment.trim()) { window.alert("Nama mesin atau alat wajib diisi."); return; }
                   setMaintenanceItems((prev) => [{ id: String(Date.now()), ...maintenanceForm, date: new Date().toISOString().slice(0, 10) }, ...prev]);
                   setMaintenanceForm({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" });
                 }}
                 style={primaryButton(colors)}
-              >
-                Tambah maintenance
-              </button>
+              >Tambah maintenance</button>
             </aside>
           </section>
         )}
