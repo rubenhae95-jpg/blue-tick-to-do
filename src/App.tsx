@@ -1,40 +1,6 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import "./App.css";
+import { useMemo, useState } from "react";
 
-type UserRole = "Admin" | "Staff";
-type Status = "Pending" | "In Progress" | "Completed" | "Cancelled";
-type Priority = "High" | "Medium" | "Low";
-type Category =
-  | "Production"
-  | "Delivery"
-  | "Cleaning"
-  | "Maintenance"
-  | "Office"
-  | "Warehouse"
-  | "Administration"
-  | "Others";
-
-type Task = {
-  id: string;
-  title: string;
-  description: string;
-  category: Category;
-  priority: Priority;
-  assignee: string;
-  deadline: string;
-  status: Status;
-  notes: string;
-  photo?: string;
-  createdAt: string;
-  createdByRole?: UserRole;
-  startTime?: string;
-  endTime?: string;
-  reason?: string;
-  completedBy?: string;
-  completedAt?: string;
-};
-
-const categories: Category[] = [
+const categories = [
   "Production",
   "Delivery",
   "Cleaning",
@@ -44,199 +10,96 @@ const categories: Category[] = [
   "Administration",
   "Others",
 ];
-const priorities: Priority[] = ["High", "Medium", "Low"];
-const statuses: Status[] = ["Pending", "In Progress", "Completed", "Cancelled"];
-const statusColors: Record<Status, string> = {
-  Pending: "#6b7280",
-  "In Progress": "#3b82f6",
-  Completed: "#16a34a",
-  Cancelled: "#dc2626",
+const priorities = ["High", "Medium", "Low"];
+const statuses = ["Pending", "In progress", "Completed", "Cancelled"];
+const shifts = ["Day", "Night"];
+
+const statusStyles = {
+  Pending: { bg: "#eef2f8", text: "#5b6b82" },
+  "In progress": { bg: "#dbeafe", text: "#1d4ed8" },
+  Completed: { bg: "#dcecff", text: "#0c4a8c" },
+  Cancelled: { bg: "#fde8e8", text: "#a12626" },
 };
 
-const statusBadgeBackground: Record<Status, string> = {
-  Pending: "#f8fafc",
-  "In Progress": "#dbeafe",
-  Completed: "#dcfce7",
-  Cancelled: "#fee2e2",
-};
-
-const statusBadgeText: Record<Status, string> = {
-  Pending: "#475569",
-  "In Progress": "#1d4ed8",
-  Completed: "#166534",
-  Cancelled: "#b91c1c",
-};
-
-type Language = "id" | "en";
-
-const translations: Record<Language, Record<string, string>> = {
-  id: {
-    darkMode: "Mode Gelap",
-    lightMode: "Mode Terang",
-    languageLabel: "Bahasa",
-    dashboard: "Dashboard",
-    totalTasks: "Total tugas",
-    completed: "Selesai",
-    remaining: "Belum selesai",
-    pending: "Pending",
-    progress: "Progress",
-    reportHeader: "Laporan & Share",
-    shareDescription: "Bagikan status tugas ke WhatsApp.",
-    shareWhatsApp: "Share WhatsApp",
-    taskManagement: "Task Management",
-    roleView: "view",
-    exportCsv: "Export CSV",
-    searchPlaceholder: "Cari tugas...",
-    addEditTask: "Tambah / Edit Task",
-    adminStaffNote: "Admin dan Staff dapat membuat task. Edit/hapus hanya untuk Admin.",
-    titlePlaceholder: "Judul tugas",
-    descriptionPlaceholder: "Deskripsi tugas",
-    assigneePlaceholder: "Penanggung jawab",
-    notesPlaceholder: "Catatan internal",
-    startTimePlaceholder: "Jam Mulai",
-    endTimePlaceholder: "Jam Selesai",
-    reasonPlaceholder: "Alasan jika Pending atau In Progress",
-    saveChanges: "Simpan Perubahan",
-    addTask: "Tambah Task",
-    resetAllTasks: "Reset Seluruh Task",
-    resetConfirm: "Apakah Anda ingin mereset semua task?",
-    alertTitleRequired: "Judul tugas wajib diisi.",
-    alertAssigneeRequired: "Penanggung jawab wajib diisi.",
-    alertTaskLimitReached: "Batas 50 tugas untuk peran telah tercapai.",
-    alertEditAdminOnly: "Edit tugas hanya diperbolehkan oleh Admin.",
-    createdLabel: "Dibuat",
-    deadlineLabel: "Deadline",
-    timeLabel: "Waktu",
-    reasonLabel: "Alasan",
-    taskCreatedByRole: "tugas dibuat oleh",
-    limitReached: "Batas tercapai untuk penambahan tugas baru.",
-    canAddTask: "Peran ini dapat membuat task baru.",
-    reportDateAt: "pukul",
-    accessWebLabel: "🔗 Akses web:",
-  },
-  en: {
-    darkMode: "Dark Mode",
-    lightMode: "Light Mode",
-    languageLabel: "Language",
-    dashboard: "Dashboard",
-    totalTasks: "Total tasks",
-    completed: "Completed",
-    remaining: "Remaining",
-    pending: "Pending",
-    progress: "Progress",
-    reportHeader: "Report & Share",
-    shareDescription: "Share task status to WhatsApp.",
-    shareWhatsApp: "Share WhatsApp",
-    taskManagement: "Task Management",
-    roleView: "view",
-    exportCsv: "Export CSV",
-    searchPlaceholder: "Search tasks...",
-    addEditTask: "Add / Edit Task",
-    adminStaffNote: "Admin and Staff can create tasks. Edit/delete only by Admin.",
-    titlePlaceholder: "Task title",
-    descriptionPlaceholder: "Task description",
-    assigneePlaceholder: "Assignee",
-    notesPlaceholder: "Internal notes",
-    startTimePlaceholder: "Start time",
-    endTimePlaceholder: "End time",
-    reasonPlaceholder: "Reason if Pending or In Progress",
-    saveChanges: "Save Changes",
-    addTask: "Add Task",
-    resetAllTasks: "Reset All Tasks",
-    resetConfirm: "Do you want to reset all tasks?",
-    alertTitleRequired: "Task title is required.",
-    alertAssigneeRequired: "Assignee is required.",
-    alertTaskLimitReached: "50 task limit for this role has been reached.",
-    alertEditAdminOnly: "Edit is allowed only for Admin.",
-    createdLabel: "Created",
-    deadlineLabel: "Deadline",
-    timeLabel: "Time",
-    reasonLabel: "Reason",
-    taskCreatedByRole: "tasks created by",
-    limitReached: "Limit reached for adding new tasks.",
-    canAddTask: "This role can add new tasks.",
-    reportDateAt: "at",
-    accessWebLabel: "🔗 Web access:",
-  },
-};
-
-const sampleTasks: Task[] = [
-  {
-    id: "1",
-    title: "Clean Machine",
-    description: "Bersihkan mesin utama agar siap digunakan.",
-    category: "Production",
-    priority: "High",
-    assignee: "Budi",
-    deadline: "2026-07-17",
-    status: "Completed",
-    notes: "Selesai pagi ini.",
-    createdAt: "2026-07-17",
-    startTime: "08:00",
-    endTime: "09:10",
-    createdByRole: "Admin",
-    completedBy: "Budi",
-    completedAt: "09:10",
-  },
-  {
-    id: "2",
-    title: "Wash Mold",
-    description: "Cuci cetakan setelah produksi.",
-    category: "Maintenance",
-    priority: "Medium",
-    assignee: "Ani",
-    deadline: "2026-07-17",
-    status: "Completed",
-    notes: "Tidak ada masalah.",
-    createdAt: "2026-07-17",
-    completedBy: "Ani",
-    completedAt: "10:30",
-  },
-  {
-    id: "3",
-    title: "Prepare Delivery",
-    description: "Siapkan barang dan dokumen pengiriman.",
-    category: "Delivery",
-    priority: "High",
-    assignee: "Siti",
-    deadline: "2026-07-17",
-    status: "In Progress",
-    notes: "Menunggu armada.",
-    startTime: "10:00",
-    endTime: "12:30",
-    reason: "Tim produksi belum siap mengangkut.",
-    createdAt: "2026-07-17",
-  },
-  {
-    id: "4",
-    title: "Check Water Pump",
-    description: "Periksa pompa air area produksi.",
-    category: "Maintenance",
-    priority: "Low",
-    assignee: "Dedi",
-    deadline: "2026-07-18",
-    status: "Pending",
-    notes: "Belum dilakukan.",
-    createdAt: "2026-07-17",
-    createdByRole: "Admin",
-  },
+// Demo-only accounts. Plain-text, client-side check for preview purposes —
+// not a real authentication system.
+const accounts = [
+  { username: "ruben", password: "ruben123", name: "Ruben Hina", roleTitle: "Factory Supervisor", permissionRole: "Admin", shift: "Day" },
+  { username: "budi", password: "budi123", name: "Budi", roleTitle: "Production Staff", permissionRole: "Staff", shift: "Day" },
+  { username: "ani", password: "ani123", name: "Ani", roleTitle: "Maintenance Staff", permissionRole: "Staff", shift: "Day" },
+  { username: "siti", password: "siti123", name: "Siti", roleTitle: "Delivery Staff", permissionRole: "Staff", shift: "Night" },
+  { username: "dedi", password: "dedi123", name: "Dedi", roleTitle: "Maintenance Staff", permissionRole: "Staff", shift: "Night" },
 ];
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+const t = {
+  darkMode: "Mode gelap",
+  lightMode: "Mode terang",
+  dashboard: "Dashboard",
+  totalTasks: "Total tugas",
+  completed: "Selesai",
+  remaining: "Belum selesai",
+  pending: "Pending",
+  reportHeader: "Laporan dan share",
+  shareDescription: "Bagikan laporan harian user terpilih ke WhatsApp.",
+  taskManagement: "Task management",
+  addEditTask: "Tambah atau edit task",
+  adminStaffNote: "Admin dan staff dapat membuat task. Edit dan hapus hanya untuk admin.",
+  titlePlaceholder: "Judul tugas",
+  descriptionPlaceholder: "Deskripsi tugas",
+  assigneePlaceholder: "Penanggung jawab",
+  notesPlaceholder: "Catatan internal",
+  reasonPlaceholder: "Alasan jika pending atau in progress",
+  saveChanges: "Simpan perubahan",
+  addTask: "Tambah task",
+  resetConfirm: "Ini akan mengosongkan tanggal dan jam pada semua task, tanpa menghapus task itu sendiri. Lanjutkan?",
+  alertTitleRequired: "Judul tugas wajib diisi.",
+  alertAssigneeRequired: "Penanggung jawab wajib diisi.",
+  taskCreatedByRole: "tugas dibuat oleh",
+  limitReached: "Batas tercapai untuk menambah tugas baru.",
+  canAddTask: "Peran ini dapat membuat task baru.",
 };
 
-const formatTimeRange = (task: Task) => {
+const sampleTasks = [
+  { id: "1", title: "Clean machine", description: "Bersihkan mesin utama agar siap digunakan.", category: "Production", priority: "High", assignee: "Budi", deadline: "2026-07-17", status: "Completed", notes: "Selesai pagi ini.", createdAt: "2026-07-17", startTime: "08:00", endTime: "09:10", createdByRole: "Admin" },
+  { id: "2", title: "Wash mold", description: "Cuci cetakan setelah produksi.", category: "Maintenance", priority: "Medium", assignee: "Ani", deadline: "2026-07-17", status: "Completed", notes: "Tidak ada masalah.", createdAt: "2026-07-17" },
+  { id: "3", title: "Prepare delivery", description: "Siapkan barang dan dokumen pengiriman.", category: "Delivery", priority: "High", assignee: "Siti", deadline: "2026-07-17", status: "In progress", notes: "Menunggu armada.", startTime: "10:00", endTime: "12:30", reason: "Tim produksi belum siap mengangkut.", createdAt: "2026-07-17" },
+  { id: "4", title: "Check water pump", description: "Periksa pompa air area produksi.", category: "Maintenance", priority: "Low", assignee: "Dedi", deadline: "2026-07-18", status: "Pending", notes: "Belum dilakukan.", createdAt: "2026-07-17", createdByRole: "Admin" },
+  { id: "5", title: "Maintenance Updated and Planning", description: "Update rencana maintenance mingguan.", category: "Maintenance", priority: "Medium", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Jadwal minggu depan sudah disusun.", createdAt: "2026-07-18", endTime: "13:59" },
+  { id: "6", title: "Bike Delivery", description: "Antar pesanan menggunakan motor.", category: "Delivery", priority: "Medium", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Semua pesanan sampai tepat waktu.", createdAt: "2026-07-18", endTime: "12:03" },
+  { id: "7", title: "Factory Cleaning", description: "Bersihkan area pabrik.", category: "Cleaning", priority: "Low", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Area produksi dan gudang sudah rapi.", createdAt: "2026-07-18", endTime: "12:03" },
+  { id: "8", title: "Cocktails Ice Prep", description: "Siapkan es untuk kebutuhan cocktail.", category: "Production", priority: "High", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Stok es siap untuk shift malam.", createdAt: "2026-07-18", endTime: "13:53" },
+  { id: "9", title: "Helping Organize Melting Bags", description: "Bantu menyusun kantong es yang meleleh.", category: "Warehouse", priority: "Low", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Sudah dipisahkan sesuai kondisi.", createdAt: "2026-07-18", endTime: "13:59" },
+  { id: "10", title: "Ice Ball Harvest & Production", description: "Panen dan produksi ice ball.", category: "Production", priority: "High", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Pending", notes: "", reason: "Still Watery", createdAt: "2026-07-18" },
+];
+
+const sampleStock = [
+  { id: "1", item: "Es batu kristal", unit: "kg", counted: 120, notes: "Stok aman", date: "2026-07-18" },
+  { id: "2", item: "Kantong es", unit: "pcs", counted: 340, notes: "Perlu tambah minggu depan", date: "2026-07-18" },
+];
+
+const sampleMeetings = [
+  { id: "1", title: "Briefing produksi harian", date: "2026-07-19", time: "07:30", attendees: "Ruben Hina, Budi, Siti", notes: "Bahas target produksi hari ini." },
+];
+
+const sampleMaintenance = [
+  { id: "1", equipment: "Mesin ice ball", issue: "Suara berisik saat beroperasi", technician: "Dedi", status: "In progress", date: "2026-07-18", notes: "Menunggu spare part." },
+];
+
+const formatDate = (dateString) => {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+};
+
+const formatDateShort = (date) => date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+const formatTimeRange = (task) => {
   if (!task.startTime && !task.endTime) return "";
   return `${task.startTime || "-"} - ${task.endTime || "-"}`;
 };
 
-const getTaskDuration = (task: Task) => {
+const getTaskDuration = (task) => {
   if (!task.startTime || !task.endTime) return "";
   const [startHour, startMinute] = task.startTime.split(":").map(Number);
   const [endHour, endMinute] = task.endTime.split(":").map(Number);
@@ -249,21 +112,145 @@ const getTaskDuration = (task: Task) => {
   return `${hours ? `${hours}j` : ""}${hours && minutes ? " " : ""}${minutes ? `${minutes}m` : ""}`.trim();
 };
 
-function App() {
-  const [role, setRole] = useState<UserRole>("Admin");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [lang, setLang] = useState<Language>("id");
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const t = translations[lang];
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem("blue-tick-todo-tasks");
-    return saved ? JSON.parse(saved) : sampleTasks;
-  });
+// Light-blue theme tokens.
+const getColors = (theme) =>
+  theme === "light"
+    ? {
+        page: "#EAF3FC",
+        card: "#FFFFFF",
+        cardMuted: "#F0F7FE",
+        text: "#16324A",
+        muted: "#5B7690",
+        border: "rgba(22,50,74,0.10)",
+        borderStrong: "rgba(22,50,74,0.20)",
+        accent: "#2F7FE0",
+        accentBg: "#DCEBFB",
+        danger: "#B33636",
+      }
+    : {
+        page: "#0E1B2B",
+        card: "#152840",
+        cardMuted: "#1B324E",
+        text: "#EAF3FC",
+        muted: "#93AFC9",
+        border: "rgba(234,243,252,0.10)",
+        borderStrong: "rgba(234,243,252,0.20)",
+        accent: "#7DD3FC",
+        accentBg: "#1E3A57",
+        danger: "#E8A0A0",
+      };
+
+const fieldStyle = (colors) => ({
+  width: "100%",
+  borderRadius: 8,
+  border: `0.5px solid ${colors.border}`,
+  padding: "9px 12px",
+  background: colors.cardMuted,
+  color: colors.text,
+  fontSize: 14,
+  fontFamily: "inherit",
+});
+
+const secondaryButton = (colors) => ({
+  borderRadius: 8,
+  border: `0.5px solid ${colors.borderStrong}`,
+  padding: "9px 14px",
+  background: "transparent",
+  color: colors.text,
+  cursor: "pointer",
+  fontSize: 14,
+});
+
+const primaryButton = (colors) => ({
+  borderRadius: 8,
+  border: "none",
+  padding: "10px 16px",
+  background: colors.accent,
+  color: "#FFFFFF",
+  cursor: "pointer",
+  fontSize: 14,
+});
+
+const tabButton = (colors, active) => ({
+  borderRadius: 8,
+  border: active ? "none" : `0.5px solid ${colors.borderStrong}`,
+  padding: "8px 14px",
+  background: active ? colors.accent : "transparent",
+  color: active ? "#FFFFFF" : colors.text,
+  cursor: "pointer",
+  fontSize: 14,
+});
+
+function LoginScreen({ colors, onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = () => {
+    const match = accounts.find(
+      (acc) => acc.username.toLowerCase() === username.trim().toLowerCase() && acc.password === password
+    );
+    if (!match) {
+      setError("Username atau password salah.");
+      return;
+    }
+    setError("");
+    onLogin(match);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 24, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ width: 320, background: colors.card, borderRadius: 12, border: `0.5px solid ${colors.border}`, padding: 24 }}>
+        <div
+          style={{
+            fontSize: 26,
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            color: colors.accent,
+            marginBottom: 4,
+          }}
+        >
+          BLUE TICK ICE
+        </div>
+        <div style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>Masuk untuk melihat task kamu</div>
+        <div style={{ display: "grid", gap: 10 }}>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" style={fieldStyle(colors)} />
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            type="password"
+            style={fieldStyle(colors)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+          />
+          {error && <div style={{ fontSize: 12, color: colors.danger }}>{error}</div>}
+          <button onClick={submit} style={primaryButton(colors)}>Masuk</button>
+          <div style={{ fontSize: 11, color: colors.muted, marginTop: 8, lineHeight: 1.6 }}>
+            Demo: ruben/ruben123 (admin), budi/budi123, ani/ani123, siti/siti123, dedi/dedi123.
+            Login ini hanya untuk pratinjau, bukan sistem autentikasi sungguhan.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [theme, setTheme] = useState("light");
+  const colors = getColors(theme);
+  const [activeTab, setActiveTab] = useState("tasks");
+  const [logoUrl, setLogoUrl] = useState(null);
+
+  const [tasks, setTasks] = useState(sampleTasks);
   const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState<string>("All");
-  const [filterStatus, setFilterStatus] = useState<string>("All");
-  const [filterPriority, setFilterPriority] = useState<string>("All");
-  const [taskForm, setTaskForm] = useState<Partial<Task>>({
+  const [filterCategory, setFilterCategory] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterPriority, setFilterPriority] = useState("All");
+  const [adminViewUser, setAdminViewUser] = useState("Semua");
+
+  const [taskForm, setTaskForm] = useState({
     title: "",
     description: "",
     category: "Production",
@@ -277,54 +264,66 @@ function App() {
     reason: "",
   });
 
-  useEffect(() => {
-    localStorage.setItem("blue-tick-todo-tasks", JSON.stringify(tasks));
+  const [stockItems, setStockItems] = useState(sampleStock);
+  const [stockForm, setStockForm] = useState({ item: "", unit: "", counted: "", notes: "" });
+
+  const [meetings, setMeetings] = useState(sampleMeetings);
+  const [meetingForm, setMeetingForm] = useState({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
+
+  const [maintenanceItems, setMaintenanceItems] = useState(sampleMaintenance);
+  const [maintenanceForm, setMaintenanceForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" });
+
+  const userOptions = useMemo(() => {
+    const names = Array.from(new Set(tasks.map((task) => task.assignee).filter(Boolean)));
+    return ["Semua", ...names];
   }, [tasks]);
 
-  const today = new Date().toLocaleDateString(lang === "id" ? "id-ID" : "en-GB", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  if (!currentUser) {
+    return (
+      <LoginScreen
+        colors={colors}
+        onLogin={(account) => {
+          setCurrentUser(account);
+          setTaskForm((prev) => ({ ...prev, assignee: account.permissionRole === "Staff" ? account.name : prev.assignee }));
+        }}
+      />
+    );
+  }
 
-  const filteredTasks = useMemo(
-    () =>
-      tasks
-        .filter((task) => {
-          const matchesSearch =
-            !search ||
-            task.title.toLowerCase().includes(search.toLowerCase()) ||
-            task.description.toLowerCase().includes(search.toLowerCase()) ||
-            task.assignee.toLowerCase().includes(search.toLowerCase());
-          const matchesCategory =
-            filterCategory === "All" || task.category === filterCategory;
-          const matchesStatus =
-            filterStatus === "All" || task.status === filterStatus;
-          const matchesPriority =
-            filterPriority === "All" || task.priority === filterPriority;
-          return matchesSearch && matchesCategory && matchesStatus && matchesPriority;
-        })
-        .sort((a, b) => {
-          const order = { High: 0, Medium: 1, Low: 2 } as const;
-          return order[a.priority] - order[b.priority];
-        }),
-    [tasks, search, filterCategory, filterStatus, filterPriority]
-  );
+  const role = currentUser.permissionRole;
+  // Staff always sees only their own tasks; Admin can browse everyone or one person.
+  const selectedUser = role === "Staff" ? currentUser.name : adminViewUser;
 
-  const totalCount = tasks.length;
-  const completedCount = tasks.filter((task) => task.status === "Completed").length;
-  const pendingCount = tasks.filter((task) => task.status === "Pending").length;
-  const remainingCount = tasks.filter(
-    (task) => task.status !== "Completed" && task.status !== "Cancelled"
-  ).length;
+  const today = new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+
+  const filteredTasks = tasks
+    .filter((task) => {
+      const matchesSearch =
+        !search ||
+        task.title.toLowerCase().includes(search.toLowerCase()) ||
+        task.description.toLowerCase().includes(search.toLowerCase()) ||
+        task.assignee.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = filterCategory === "All" || task.category === filterCategory;
+      const matchesStatus = filterStatus === "All" || task.status === filterStatus;
+      const matchesPriority = filterPriority === "All" || task.priority === filterPriority;
+      const matchesUser = selectedUser === "Semua" || task.assignee === selectedUser;
+      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesUser;
+    })
+    .sort((a, b) => {
+      const order = { High: 0, Medium: 1, Low: 2 };
+      return order[a.priority] - order[b.priority];
+    });
+
+  const totalCount = filteredTasks.length;
+  const completedCount = filteredTasks.filter((task) => task.status === "Completed").length;
+  const pendingCount = filteredTasks.filter((task) => task.status === "Pending").length;
+  const remainingCount = filteredTasks.filter((task) => task.status !== "Completed" && task.status !== "Cancelled").length;
   const taskLimit = 50;
   const roleTaskCount = tasks.filter((task) => task.createdByRole === role).length;
   const taskLimitReached = roleTaskCount >= taskLimit;
   const completionPercent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const handleFormChange = (field: keyof Task, value: string) => {
-    setTaskForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const handleFormChange = (field, value) => setTaskForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSaveTask = () => {
     if (!taskForm.title?.trim()) {
@@ -335,43 +334,36 @@ function App() {
       window.alert(t.alertAssigneeRequired);
       return;
     }
-
     const isNew = !taskForm.id;
     if (isNew && taskLimitReached) {
       window.alert(`Batas ${taskLimit} tugas untuk peran ${role} telah tercapai.`);
       return;
     }
-
     if (!isNew && role !== "Admin") {
-      window.alert("Edit tugas hanya diperbolehkan oleh Admin.");
+      window.alert("Edit tugas hanya diperbolehkan oleh admin.");
       return;
     }
 
-    const normalizedTask: Task = {
+    const normalizedTask = {
       id: taskForm.id || String(Date.now()),
       title: taskForm.title,
       description: taskForm.description || "",
-      category: (taskForm.category || "Production") as Category,
-      priority: (taskForm.priority || "Medium") as Priority,
+      category: taskForm.category || "Production",
+      priority: taskForm.priority || "Medium",
       assignee: taskForm.assignee,
       deadline: taskForm.deadline || new Date().toISOString().slice(0, 10),
-      status: (taskForm.status || "Pending") as Status,
+      status: taskForm.status || "Pending",
       notes: taskForm.notes || "",
       createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10),
       createdByRole: taskForm.createdByRole || role,
       startTime: taskForm.startTime,
       endTime: taskForm.endTime,
       reason: taskForm.reason || "",
-      completedBy: taskForm.completedBy,
-      completedAt: taskForm.completedAt,
-      photo: taskForm.photo,
     };
 
     setTasks((prev) => {
       const exists = prev.some((item) => item.id === normalizedTask.id);
-      if (exists) {
-        return prev.map((item) => (item.id === normalizedTask.id ? normalizedTask : item));
-      }
+      if (exists) return prev.map((item) => (item.id === normalizedTask.id ? normalizedTask : item));
       return [normalizedTask, ...prev];
     });
 
@@ -380,7 +372,7 @@ function App() {
       description: "",
       category: "Production",
       priority: "Medium",
-      assignee: "",
+      assignee: role === "Staff" ? currentUser.name : "",
       deadline: new Date().toISOString().slice(0, 10),
       status: "Pending",
       notes: "",
@@ -390,913 +382,505 @@ function App() {
     });
   };
 
-  const handleEditTask = (task: Task) => {
-    setTaskForm(task);
-  };
+  const handleEditTask = (task) => setTaskForm(task);
+  const handleDeleteTask = (id) => setTasks((prev) => prev.filter((task) => task.id !== id));
 
-  const handleDeleteTask = (id: string) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
-  };
-
-  const handleResetTasks = () => {
+  const handleResetDatesTimes = () => {
     if (window.confirm(t.resetConfirm)) {
-      setTasks([]);
+      setTasks((prev) => prev.map((task) => ({ ...task, deadline: "", startTime: "", endTime: "" })));
     }
   };
 
-  const handleStatusToggle = (task: Task) => {
-    if (role === "Staff") {
+  const handleStatusToggle = (task) => {
+    if (role === "Staff" && task.assignee === currentUser.name) {
       setTasks((prev) =>
         prev.map((item) =>
-          item.id === task.id
-            ? {
-                ...item,
-                status: item.status === "Completed" ? "In Progress" : "Completed",
-                completedBy: item.status === "Completed" ? undefined : "Staff",
-                completedAt:
-                  item.status === "Completed"
-                    ? undefined
-                    : new Date().toLocaleTimeString("en-GB", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }),
-              }
-            : item
+          item.id === task.id ? { ...item, status: item.status === "Completed" ? "In progress" : "Completed" } : item
         )
       );
     }
   };
 
-  const handlePhotoUpload = (id: string, e: ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        setTasks((prev) => prev.map((task) => (task.id === id ? { ...task, photo: result } : task)));
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        setLogoSrc(result);
-      }
+      if (typeof reader.result === "string") setLogoUrl(reader.result);
     };
     reader.readAsDataURL(file);
   };
 
   const shareWhatsApp = () => {
-    const completedTasks = tasks.filter((task) => task.status === "Completed");
-    const remainingTasks = tasks.filter((task) => task.status !== "Completed" && task.status !== "Cancelled");
+    const reportUser = role === "Staff" ? currentUser.name : adminViewUser;
+    if (reportUser === "Semua") {
+      window.alert("Pilih satu user terlebih dahulu untuk membuat laporan.");
+      return;
+    }
+    const userTasks = tasks.filter((task) => task.assignee === reportUser);
+    const completedTasks = userTasks.filter((task) => task.status === "Completed");
+    const pendingTasks = userTasks.filter((task) => task.status === "Pending" || task.status === "In progress");
+    const assigned = userTasks.length;
+    const completed = completedTasks.length;
+    const pending = pendingTasks.length;
+    const rate = assigned ? Math.round((completed / assigned) * 100) : 0;
+
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const reportDate = `${formattedDate} pukul ${formattedTime}`;
+    const divider = "━━━━━━━━━━━━━━━━━━";
+    const reportRoleTitle = role === "Staff" ? currentUser.roleTitle : (accounts.find((a) => a.name === reportUser)?.roleTitle || "Staff");
+    const reportShift = role === "Staff" ? currentUser.shift : (accounts.find((a) => a.name === reportUser)?.shift || "Day");
 
-    const completedLines = completedTasks.map((task) => {
-      const duration = getTaskDuration(task);
-      const timeRange = formatTimeRange(task);
-      const timeInfo = timeRange ? ` (${timeRange}${duration ? `, ${duration}` : ""})` : "";
-      return `✔ ${task.title}${timeInfo}`;
+    const completedLines = completedTasks.flatMap((task, index) => {
+      const time = task.endTime || task.startTime || "-";
+      const lines = [`${index + 1}. ${task.title} 🕒 ✓ ${time}`];
+      if (task.notes) lines.push(`   📝 ${task.notes}`);
+      return lines;
     });
 
-    const remainingLines = remainingTasks.map((task) => {
-      const duration = getTaskDuration(task);
-      const timeRange = formatTimeRange(task);
-      const timeInfo = timeRange ? ` (${timeRange}${duration ? `, ${duration}` : ""})` : "";
-      return `• ${task.title}${timeInfo}`;
+    const pendingLines = pendingTasks.flatMap((task) => {
+      const lines = [`• ${task.title}`];
+      if (task.reason) lines.push(`  Reason: ${task.reason}`);
+      return lines;
     });
 
     const lines = [
-      "🧊 RUBEN TO DO",
-      "",
-      `📅 ${reportDate}`,
-      "",
-      "━━━━━━━━━━━━━━",
-      "",
-      `✅ COMPLETED (${completedTasks.length})`,
-      "",
-      ...completedLines,
-      "",
-      "━━━━━━━━━━━━━━",
-      "",
-      `⬜ REMAINING (${remainingTasks.length})`,
-      "",
-      ...remainingLines,
-      "",
-      "━━━━━━━━━━━━━━",
-      "",
-      "📊 Progress",
-      `${completionPercent}%`,
-      "",
-      "Ruben",
-      "",
-      `🔗 Akses web: ${window.location.href}`,
+      "📋 DAILY TASK REPORT",
+      `👤 Employee : ${reportUser.toUpperCase()}`,
+      `💼 Role : ${reportRoleTitle}`,
+      `🕒 Shift : ${reportShift}`,
+      `📅 Date : ${formatDateShort(now)}`,
+      divider,
+      "📊 TASK SUMMARY",
+      `📌 Assigned : ${assigned}`,
+      `✅ Completed : ${completed}`,
+      `⏳ Pending : ${pending}`,
+      `📈 Completion Rate : ${rate}%`,
+      divider,
+      "✅ COMPLETED TASKS",
+      ...(completedLines.length ? completedLines : ["-"]),
+      divider,
+      "⏳ PENDING TASKS",
+      ...(pendingLines.length ? pendingLines : ["-"]),
+      divider,
+      `📤 Submitted by: ${reportUser.toUpperCase()}`,
+      `🕒 Submitted: ${formatDateShort(now)} | ${now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`,
     ].join("\n");
+
     window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
   };
 
-  const exportCsv = () => {
-    const header = ["Title", "Description", "Category", "Priority", "Assignee", "Deadline", "Status", "Notes"];
-    const rows = tasks.map((task) => [
-      task.title,
-      task.description,
-      task.category,
-      task.priority,
-      task.assignee,
-      task.deadline,
-      task.status,
-      task.notes.replace(/\n/g, " "),
-    ]);
-    const csv = [header, ...rows]
-      .map((row) => row.map((value) => `"${value}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "blue-tick-todo.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const colors = theme === "light"
-    ? {
-        page: "#f3f4f6",
-        card: "#ffffff",
-        text: "#0f172a",
-        muted: "#475569",
-        border: "#e2e8f0",
-      }
-    : {
-        page: "#0f172a",
-        card: "#111827",
-        text: "#f8fafc",
-        muted: "#cbd5e1",
-        border: "#334155",
-      };
+  const filterRowStyle = { marginBottom: 16, display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" };
 
   return (
-    <div className="app-root"
-      style={{
-        minHeight: "100vh",
-        background: colors.page,
-        color: colors.text,
-        fontFamily: "Inter, Arial, sans-serif",
-        padding: 24,
-      }}
-    >
-      <div className="app-content"
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          display: "grid",
-          gap: 24,
-        }}
-      >
-        <header className="app-header"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-          }}
-        >
-          <div className="header-brand" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 18,
-                background: "#60a5fa",
-                color: "white",
-                display: "grid",
-                placeItems: "center",
-                fontSize: 24,
-                fontWeight: 800,
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt="Logo"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              ) : (
-                "✓"
-              )}
-              <input
-                id="logo-upload"
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleLogoUpload}
-              />
+    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: 24, transition: "background 0.2s, color 0.2s" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');`}</style>
+
+      <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gap: 20 }}>
+        <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ position: "relative" }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  background: colors.accentBg,
+                  color: colors.accent,
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 18,
+                  fontWeight: 500,
+                  overflow: "hidden",
+                }}
+              >
+                {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "✓"}
+              </div>
+              <label
+                title="Ganti logo"
+                style={{
+                  position: "absolute",
+                  bottom: -4,
+                  right: -4,
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  background: colors.accent,
+                  color: "#fff",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  border: `2px solid ${colors.page}`,
+                }}
+              >
+                +
+                <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
+              </label>
             </div>
             <div>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  fontFamily: "'Matterhorn', cursive",
-                  lineHeight: 1.05,
-                }}
-              >
-                Daily Operation Task
-              </div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 38,
-                  fontWeight: 800,
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  letterSpacing: "0.08em",
-                  color: "#7dd3fc",
-                }}
-              >
+              <div style={{ fontSize: 13, color: colors.muted }}>Daily operation task</div>
+              <div style={{ fontSize: 30, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, lineHeight: 1 }}>
                 BLUE TICK ICE
               </div>
             </div>
           </div>
-          <div className="header-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
-              style={{
-                border: `1px solid ${colors.border}`,
-                borderRadius: 10,
-                padding: "10px 14px",
-                background: colors.card,
-                color: colors.text,
-                cursor: "pointer",
-              }}
-            >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 13, color: colors.muted, marginRight: 4 }}>
+              {currentUser.name} · {currentUser.roleTitle}
+            </div>
+            <button onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))} style={secondaryButton(colors)}>
               {theme === "light" ? t.darkMode : t.lightMode}
             </button>
-            <select
-              value={lang}
-              onChange={(e) => setLang(e.target.value as Language)}
-              style={{
-                borderRadius: 10,
-                border: `1px solid ${colors.border}`,
-                padding: "10px 12px",
-                background: colors.card,
-                color: colors.text,
-                cursor: "pointer",
-              }}
-            >
-              <option value="id">ID</option>
-              <option value="en">EN</option>
-            </select>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
-              style={{
-                borderRadius: 10,
-                border: `1px solid ${colors.border}`,
-                padding: "10px 12px",
-                background: colors.card,
-                color: colors.text,
-                cursor: "pointer",
-              }}
-            >
-              <option value="Admin">Admin</option>
-              <option value="Staff">Staff</option>
-            </select>
+            <button onClick={() => setCurrentUser(null)} style={secondaryButton(colors)}>Keluar</button>
           </div>
         </header>
 
-        <section className="dashboard-grid"
-          style={{
-            display: "grid",
-            gap: 20,
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-          }}
-        >
-          <div
-            style={{
-              background: colors.card,
-              borderRadius: 20,
-              padding: 20,
-              border: `1px solid ${colors.border}`,
-            }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
-              {t.dashboard}
-            </div>
-            <div style={{ marginBottom: 16, color: colors.muted }}>{today}</div>
-            <div style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", color: colors.muted }}>
-                <span>{t.totalTasks}</span>
-                <strong>{totalCount}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: colors.muted }}>
-                <span>{t.completed}</span>
-                <strong>{completedCount}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: colors.muted }}>
-                <span>{t.remaining}</span>
-                <strong>{remainingCount}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: colors.muted }}>
-                <span>{t.pending}</span>
-                <strong>{pendingCount}</strong>
-              </div>
-            </div>
-          </div>
-          <div
-            style={{
-              background: colors.card,
-              borderRadius: 20,
-              padding: 20,
-              border: `1px solid ${colors.border}`,
-            }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Progress</div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: "#3b82f6" }}>
-              {completionPercent}%
-            </div>
-            <div
-              style={{
-                height: 12,
-                background: colors.border,
-                borderRadius: 999,
-                marginTop: 14,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  width: `${completionPercent}%`,
-                  height: "100%",
-                  background: "#60a5fa",
-                }}
-              />
-            </div>
-          </div>
-          <div
-            style={{
-              background: colors.card,
-              borderRadius: 20,
-              padding: 20,
-              border: `1px solid ${colors.border}`,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t.reportHeader}</div>
-              <div style={{ color: colors.muted, marginBottom: 16 }}>
-                {t.shareDescription}
-              </div>
-            </div>
-            <button
-              onClick={shareWhatsApp}
-              style={{
-                width: "100%",
-                borderRadius: 12,
-                padding: "12px 16px",
-                border: "none",
-                background: "#10b981",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Share WhatsApp
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {[
+            ["tasks", "Tasks"],
+            ["stock", "Stok opname"],
+            ["meeting", "Meeting"],
+            ["maintenance", "Maintenance"],
+          ].map(([key, label]) => (
+            <button key={key} onClick={() => setActiveTab(key)} style={tabButton(colors, activeTab === key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {role === "Admin" && (
+          <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+            <div style={{ fontSize: 13, color: colors.muted, minWidth: 90 }}>Lihat sebagai</div>
+            <select value={adminViewUser} onChange={(e) => setAdminViewUser(e.target.value)} style={{ ...fieldStyle(colors), width: 180, cursor: "pointer" }}>
+              {userOptions.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <button onClick={handleResetDatesTimes} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger, marginLeft: "auto" }}>
+              Reset tanggal &amp; jam semua task
             </button>
           </div>
-        </section>
+        )}
 
-        <section className="main-grid"
-          style={{
-            display: "grid",
-            gap: 24,
-            gridTemplateColumns: "1.2fr 1fr",
-          }}
-        >
-          <div
-            style={{
-              background: colors.card,
-              borderRadius: 20,
-              padding: 20,
-              border: `1px solid ${colors.border}`,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 20,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{t.taskManagement}</div>
-                <div style={{ color: colors.muted, marginTop: 4 }}>{role} {t.roleView}</div>
-              </div>
-              <button
-                onClick={exportCsv}
-                style={{
-                  borderRadius: 10,
-                  padding: "10px 14px",
-                  border: `1px solid ${colors.border}`,
-                  background: colors.card,
-                  color: colors.text,
-                  cursor: "pointer",
-                }}
-              >
-                {t.exportCsv}
-              </button>
-            </div>
-
-            <div className="filter-row"
-              style={{
-                marginBottom: 20,
-                display: "grid",
-                gap: 12,
-                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-              }}
-            >
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t.searchPlaceholder}
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "10px 12px",
-                  background: colors.page,
-                  color: colors.text,
-                  gridColumn: "span 2",
-                }}
-              />
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "10px 12px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              >
-                <option>All</option>
-                {categories.map((category) => (
-                  <option key={category}>{category}</option>
-                ))}
-              </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "10px 12px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              >
-                <option>All</option>
-                {statuses.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-              <select
-                value={filterPriority}
-                onChange={(e) => setFilterPriority(e.target.value)}
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "10px 12px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              >
-                <option>All</option>
-                {priorities.map((priority) => (
-                  <option key={priority}>{priority}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="task-list" style={{ display: "grid", gap: 14 }}>
-              {filteredTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="task-card"
-                  style={{
-                    borderRadius: 18,
-                    border: `1px solid ${colors.border}`,
-                    padding: 18,
-                    background: colors.page,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{task.title}</div>
-                      <div style={{ color: colors.muted, marginTop: 6, fontSize: 13 }}>
-                        {task.category} • {task.priority} • {task.assignee}
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: statusBadgeText[task.status],
-                        background: statusBadgeBackground[task.status],
-                        border: `1px solid ${statusColors[task.status]}`,
-                        borderRadius: 999,
-                        padding: "6px 10px",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        lineHeight: 1,
-                        whiteSpace: "nowrap",
-                        minWidth: 0,
-                      }}
-                    >
-                      {task.status}
-                    </span>
+        {activeTab === "tasks" && (
+          <>
+            <section style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
+                <div style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>{t.dashboard} · {today}</div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 14, color: colors.muted }}>{t.totalTasks}</span>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{totalCount}</span>
                   </div>
-
-                  <div style={{ marginTop: 12, color: colors.muted, fontSize: 14 }}>
-                    {task.description}
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 14, color: colors.muted }}>{t.completed}</span>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{completedCount}</span>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
-                    <div style={{ fontSize: 13, color: colors.muted }}>
-                      Deadline: {formatDate(task.deadline)}
-                    </div>
-                    <div style={{ fontSize: 13, color: colors.muted }}>
-                      Dibuat: {formatDate(task.createdAt)}
-                    </div>
-                    {(task.startTime || task.endTime) && (
-                      <div style={{ fontSize: 13, color: colors.muted }}>
-                        Waktu: {formatTimeRange(task)}
-                        {getTaskDuration(task) ? ` (${getTaskDuration(task)})` : ""}
-                      </div>
-                    )}
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 14, color: colors.muted }}>{t.remaining}</span>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{remainingCount}</span>
                   </div>
-                  {(task.status === "Pending" || task.status === "In Progress") && task.reason && (
-                    <div
-                      style={{
-                        marginTop: 12,
-                        borderLeft: `4px solid ${statusColors[task.status]}`,
-                        paddingLeft: 12,
-                        color: colors.text,
-                        background: theme === "light" ? "#f8fafc" : "#1f2937",
-                        borderRadius: 12,
-                        fontSize: 13,
-                      }}
-                    >
-                      Alasan: {task.reason}
-                    </div>
-                  )}
-
-                  {task.photo && (
-                    <img
-                      src={task.photo}
-                      alt="Bukti"
-                      style={{
-                        width: "100%",
-                        marginTop: 14,
-                        borderRadius: 14,
-                        maxHeight: 180,
-                        objectFit: "cover",
-                      }}
-                    />
-                  )}
-
-                  <div className="task-card-actions" style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10 }}>
-                    <label style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>
-                      Upload Foto Bukti
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handlePhotoUpload(task.id, e)}
-                        style={{ display: "none" }}
-                      />
-                    </label>
-                    <button
-                      onClick={() => handleStatusToggle(task)}
-                      style={{
-                        borderRadius: 10,
-                        border: "1px solid #2563eb",
-                        background: "#2563eb",
-                        color: "white",
-                        padding: "8px 12px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {task.status === "Completed" ? "Undo" : "Checklist"}
-                    </button>
-                    {role === "Admin" && (
-                      <>
-                        <button
-                          onClick={() => handleEditTask(task)}
-                          style={{
-                            borderRadius: 10,
-                            border: `1px solid ${colors.border}`,
-                            background: colors.card,
-                            color: colors.text,
-                            padding: "8px 12px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTask(task.id)}
-                          style={{
-                            borderRadius: 10,
-                            border: "1px solid #ef4444",
-                            background: "#ef4444",
-                            color: "white",
-                            padding: "8px 12px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Hapus
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <div style={{ marginTop: 14 }}>
-                    <textarea
-                      value={task.notes}
-                      onChange={(e) =>
-                        setTasks((prev) =>
-                          prev.map((item) =>
-                            item.id === task.id ? { ...item, notes: e.target.value } : item
-                          )
-                        )
-                      }
-                      placeholder="Catatan tambahan..."
-                      style={{
-                        width: "100%",
-                        minHeight: 80,
-                        borderRadius: 14,
-                        border: `1px solid ${colors.border}`,
-                        padding: 12,
-                        background: colors.card,
-                        color: colors.text,
-                        resize: "vertical",
-                      }}
-                    />
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 14, color: colors.muted }}>{t.pending}</span>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{pendingCount}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
+                <div style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>Progress</div>
+                <div style={{ fontSize: 28, fontWeight: 500 }}>{completionPercent}%</div>
+                <div style={{ height: 6, background: colors.cardMuted, borderRadius: 999, marginTop: 12, overflow: "hidden" }}>
+                  <div style={{ width: `${completionPercent}%`, height: "100%", background: colors.accent }} />
+                </div>
+              </div>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 13, color: colors.muted, marginBottom: 6 }}>{t.reportHeader}</div>
+                  <div style={{ fontSize: 14, color: colors.muted }}>{t.shareDescription}</div>
+                </div>
+                <button onClick={shareWhatsApp} style={primaryButton(colors)}>Share WhatsApp</button>
+              </div>
+            </section>
 
-          <aside
-            style={{
-              background: colors.card,
-              borderRadius: 20,
-              padding: 20,
-              border: `1px solid ${colors.border}`,
-              display: "flex",
-              flexDirection: "column",
-              gap: 18,
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>
-                {t.addEditTask}
+            <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 500 }}>{t.taskManagement}</div>
+                    <div style={{ color: colors.muted, marginTop: 2, fontSize: 13 }}>{selectedUser}</div>
+                  </div>
+                </div>
+
+                <div style={filterRowStyle}>
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari tugas" style={{ ...fieldStyle(colors), gridColumn: "span 2" }} />
+                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                    <option>All</option>
+                    {categories.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                    <option>All</option>
+                    {statuses.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer", gridColumn: "1 / -1" }}>
+                    <option>All</option>
+                    {priorities.map((p) => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ display: "grid", gap: 10 }}>
+                  {filteredTasks.map((task) => {
+                    const badge = statusStyles[task.status];
+                    return (
+                      <div key={task.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 500 }}>{task.title}</div>
+                            <div style={{ color: colors.muted, marginTop: 4, fontSize: 13 }}>
+                              {task.category} · {task.priority} · {task.assignee}
+                            </div>
+                          </div>
+                          <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", height: "fit-content" }}>
+                            {task.status}
+                          </span>
+                        </div>
+
+                        <div style={{ marginTop: 10, color: colors.muted, fontSize: 13 }}>{task.description}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+                          <div style={{ fontSize: 12, color: colors.muted }}>Deadline: {formatDate(task.deadline)}</div>
+                          <div style={{ fontSize: 12, color: colors.muted }}>Dibuat: {formatDate(task.createdAt)}</div>
+                          {(task.startTime || task.endTime) && (
+                            <div style={{ fontSize: 12, color: colors.muted }}>
+                              Waktu: {formatTimeRange(task)}{getTaskDuration(task) ? ` (${getTaskDuration(task)})` : ""}
+                            </div>
+                          )}
+                        </div>
+                        {(task.status === "Pending" || task.status === "In progress") && task.reason && (
+                          <div style={{ marginTop: 10, padding: "8px 10px", color: colors.text, background: colors.card, borderRadius: 8, fontSize: 12, border: `0.5px solid ${colors.border}` }}>
+                            Alasan: {task.reason}
+                          </div>
+                        )}
+
+                        <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {(role === "Admin" || task.assignee === currentUser.name) && (
+                            <button onClick={() => handleStatusToggle(task)} style={primaryButton(colors)} disabled={role !== "Staff"}>
+                              {task.status === "Completed" ? "Undo" : "Checklist"}
+                            </button>
+                          )}
+                          {role === "Admin" && (
+                            <>
+                              <button onClick={() => handleEditTask(task)} style={secondaryButton(colors)}>Edit</button>
+                              <button onClick={() => handleDeleteTask(task.id)} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button>
+                            </>
+                          )}
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
+                          <textarea
+                            value={task.notes}
+                            onChange={(e) => setTasks((prev) => prev.map((item) => (item.id === task.id ? { ...item, notes: e.target.value } : item)))}
+                            placeholder="Catatan tambahan"
+                            style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical", background: colors.card }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredTasks.length === 0 && <div style={{ fontSize: 13, color: colors.muted, padding: "12px 0" }}>Tidak ada task untuk filter ini.</div>}
+                </div>
               </div>
-              <div style={{ color: colors.muted, fontSize: 14 }}>
-                {t.adminStaffNote}
+
+              <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "flex", flexDirection: "column", gap: 14, height: "fit-content" }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>{t.addEditTask}</div>
+                  <div style={{ color: colors.muted, fontSize: 13 }}>{t.adminStaffNote}</div>
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <input value={taskForm.title} onChange={(e) => handleFormChange("title", e.target.value)} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
+                  <textarea value={taskForm.description} onChange={(e) => handleFormChange("description", e.target.value)} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
+                  <select value={taskForm.category} onChange={(e) => handleFormChange("category", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                    {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select value={taskForm.priority} onChange={(e) => handleFormChange("priority", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                    {priorities.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <input
+                    value={taskForm.assignee}
+                    onChange={(e) => handleFormChange("assignee", e.target.value)}
+                    placeholder={t.assigneePlaceholder}
+                    style={fieldStyle(colors)}
+                    disabled={role === "Staff"}
+                  />
+                  <input value={taskForm.deadline} onChange={(e) => handleFormChange("deadline", e.target.value)} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
+                  <select value={taskForm.status} onChange={(e) => handleFormChange("status", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                    {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <textarea value={taskForm.notes} onChange={(e) => handleFormChange("notes", e.target.value)} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <input type="time" value={taskForm.startTime || ""} onChange={(e) => handleFormChange("startTime", e.target.value)} style={fieldStyle(colors)} />
+                    <input type="time" value={taskForm.endTime || ""} onChange={(e) => handleFormChange("endTime", e.target.value)} style={fieldStyle(colors)} />
+                  </div>
+                  <textarea value={taskForm.reason} onChange={(e) => handleFormChange("reason", e.target.value)} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
+                  <button
+                    type="button"
+                    onClick={handleSaveTask}
+                    disabled={taskLimitReached && !taskForm.id}
+                    style={{ ...primaryButton(colors), cursor: taskLimitReached && !taskForm.id ? "not-allowed" : "pointer", opacity: taskLimitReached && !taskForm.id ? 0.6 : 1 }}
+                  >
+                    {taskForm.id ? t.saveChanges : t.addTask}
+                  </button>
+                  <div style={{ color: colors.muted, fontSize: 12 }}>
+                    {roleTaskCount}/{taskLimit} {t.taskCreatedByRole} {role}. {taskLimitReached ? t.limitReached : t.canAddTask}
+                  </div>
+                </div>
+              </aside>
+            </section>
+          </>
+        )}
+
+        {activeTab === "stock" && (
+          <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
+              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>Stok opname</div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {stockItems.map((item) => (
+                  <div key={item.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <div style={{ fontSize: 15, fontWeight: 500 }}>{item.item}</div>
+                      <div style={{ fontSize: 14, fontWeight: 500 }}>{item.counted} {item.unit}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>Tanggal opname: {formatDate(item.date)}</div>
+                    {item.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{item.notes}</div>}
+                    {role === "Admin" && (
+                      <div style={{ marginTop: 10 }}>
+                        <button onClick={() => setStockItems((prev) => prev.filter((s) => s.id !== item.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {stockItems.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada data stok opname.</div>}
               </div>
             </div>
-            <div style={{ display: "grid", gap: 12 }}>
-              <input
-                value={taskForm.title}
-                onChange={(e) => handleFormChange("title", e.target.value)}
-                placeholder={t.titlePlaceholder}
-                style={{
-                  width: "100%",
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              />
-              <textarea
-                value={taskForm.description}
-                onChange={(e) => handleFormChange("description", e.target.value)}
-                placeholder={t.descriptionPlaceholder}
-                style={{
-                  width: "100%",
-                  minHeight: 96,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                  resize: "vertical",
-                }}
-              />
-              <select
-                className="mobile-hide"
-                value={taskForm.category}
-                onChange={(e) => handleFormChange("category", e.target.value)}
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="mobile-hide"
-                value={taskForm.priority}
-                onChange={(e) => handleFormChange("priority", e.target.value)}
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              >
-                {priorities.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={taskForm.assignee}
-                onChange={(e) => handleFormChange("assignee", e.target.value)}
-                placeholder={t.assigneePlaceholder}
-                style={{
-                  width: "100%",
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              />
-              <input
-                value={taskForm.deadline}
-                onChange={(e) => handleFormChange("deadline", e.target.value)}
-                type="date"
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              />
-              <select
-                className="mobile-hide"
-                value={taskForm.status}
-                onChange={(e) => handleFormChange("status", e.target.value)}
-                style={{
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                }}
-              >
-                {statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-              <textarea
-                className="mobile-hide"
-                value={taskForm.notes}
-                onChange={(e) => handleFormChange("notes", e.target.value)}
-                placeholder={t.notesPlaceholder}
-                style={{
-                  width: "100%",
-                  minHeight: 96,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                  resize: "vertical",
-                }}
-              />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <input
-                  type="time"
-                  value={taskForm.startTime || ""}
-                  onChange={(e) => handleFormChange("startTime", e.target.value)}
-                  placeholder={t.startTimePlaceholder}
-                  style={{
-                    width: "100%",
-                    borderRadius: 12,
-                    border: `1px solid ${colors.border}`,
-                    padding: "12px 14px",
-                    background: colors.page,
-                    color: colors.text,
-                  }}
-                />
-                <input
-                  type="time"
-                  value={taskForm.endTime || ""}
-                  onChange={(e) => handleFormChange("endTime", e.target.value)}
-                  placeholder={t.endTimePlaceholder}
-                  style={{
-                    width: "100%",
-                    borderRadius: 12,
-                    border: `1px solid ${colors.border}`,
-                    padding: "12px 14px",
-                    background: colors.page,
-                    color: colors.text,
-                  }}
-                />
+            <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
+              <div style={{ fontSize: 16, fontWeight: 500 }}>Tambah data stok</div>
+              <input value={stockForm.item} onChange={(e) => setStockForm((p) => ({ ...p, item: e.target.value }))} placeholder="Nama item" style={fieldStyle(colors)} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <input value={stockForm.counted} onChange={(e) => setStockForm((p) => ({ ...p, counted: e.target.value }))} placeholder="Jumlah" type="number" style={fieldStyle(colors)} />
+                <input value={stockForm.unit} onChange={(e) => setStockForm((p) => ({ ...p, unit: e.target.value }))} placeholder="Satuan" style={fieldStyle(colors)} />
               </div>
-              <textarea
-                value={taskForm.reason}
-                onChange={(e) => handleFormChange("reason", e.target.value)}
-                placeholder={t.reasonPlaceholder}
-                style={{
-                  width: "100%",
-                  minHeight: 72,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "12px 14px",
-                  background: colors.page,
-                  color: colors.text,
-                  resize: "vertical",
-                }}
-              />
+              <textarea value={stockForm.notes} onChange={(e) => setStockForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
               <button
-                type="button"
-                onClick={handleSaveTask}
-                style={{
-                  borderRadius: 12,
-                  border: "none",
-                  background: "#2563eb",
-                  color: "white",
-                  padding: "12px 14px",
-                  cursor: taskLimitReached && !taskForm.id ? "not-allowed" : "pointer",
-                  opacity: taskLimitReached && !taskForm.id ? 0.6 : 1,
+                onClick={() => {
+                  if (!stockForm.item.trim()) {
+                    window.alert("Nama item wajib diisi.");
+                    return;
+                  }
+                  setStockItems((prev) => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, counted: stockForm.counted || 0, notes: stockForm.notes, date: new Date().toISOString().slice(0, 10) }, ...prev]);
+                  setStockForm({ item: "", unit: "", counted: "", notes: "" });
                 }}
-                disabled={taskLimitReached && !taskForm.id}
+                style={primaryButton(colors)}
               >
-                {taskForm.id ? t.saveChanges : t.addTask}
+                Tambah stok
               </button>
-              <div style={{ color: colors.muted, fontSize: 13, marginTop: 8 }}>
-                {roleTaskCount}/{taskLimit} {t.taskCreatedByRole} {role}. {taskLimitReached ? t.limitReached : t.canAddTask}
+            </aside>
+          </section>
+        )}
+
+        {activeTab === "meeting" && (
+          <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
+              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>Meeting</div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {meetings.map((m) => (
+                  <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
+                    <div style={{ fontSize: 15, fontWeight: 500 }}>{m.title}</div>
+                    <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{formatDate(m.date)} · {m.time || "-"}</div>
+                    <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>Peserta: {m.attendees || "-"}</div>
+                    {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
+                    <div style={{ marginTop: 10 }}>
+                      <button onClick={() => setMeetings((prev) => prev.filter((x) => x.id !== m.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button>
+                    </div>
+                  </div>
+                ))}
+                {meetings.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada jadwal meeting.</div>}
               </div>
-              {role === "Admin" && (
-                <button
-                  onClick={handleResetTasks}
-                  style={{
-                    borderRadius: 12,
-                    border: "1px solid #ef4444",
-                    background: "transparent",
-                    color: "#ef4444",
-                    padding: "12px 14px",
-                    cursor: "pointer",
-                  }}
-                >
-                  {t.resetAllTasks}
-                </button>
-              )}
             </div>
-          </aside>
-        </section>
+            <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
+              <div style={{ fontSize: 16, fontWeight: 500 }}>Jadwalkan meeting</div>
+              <input value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} placeholder="Judul meeting" style={fieldStyle(colors)} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <input value={meetingForm.date} onChange={(e) => setMeetingForm((p) => ({ ...p, date: e.target.value }))} type="date" style={fieldStyle(colors)} />
+                <input value={meetingForm.time} onChange={(e) => setMeetingForm((p) => ({ ...p, time: e.target.value }))} type="time" style={fieldStyle(colors)} />
+              </div>
+              <input value={meetingForm.attendees} onChange={(e) => setMeetingForm((p) => ({ ...p, attendees: e.target.value }))} placeholder="Peserta (pisahkan dengan koma)" style={fieldStyle(colors)} />
+              <textarea value={meetingForm.notes} onChange={(e) => setMeetingForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Agenda atau catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <button
+                onClick={() => {
+                  if (!meetingForm.title.trim()) {
+                    window.alert("Judul meeting wajib diisi.");
+                    return;
+                  }
+                  setMeetings((prev) => [{ id: String(Date.now()), ...meetingForm }, ...prev]);
+                  setMeetingForm({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
+                }}
+                style={primaryButton(colors)}
+              >
+                Tambah meeting
+              </button>
+            </aside>
+          </section>
+        )}
+
+        {activeTab === "maintenance" && (
+          <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
+              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>Maintenance</div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {maintenanceItems.map((m) => {
+                  const badge = statusStyles[m.status] || statusStyles.Pending;
+                  return (
+                    <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <div style={{ fontSize: 15, fontWeight: 500 }}>{m.equipment}</div>
+                        <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500 }}>{m.status}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.issue}</div>
+                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>Teknisi: {m.technician || "-"} · {formatDate(m.date)}</div>
+                      {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
+                      <div style={{ marginTop: 10 }}>
+                        <button onClick={() => setMaintenanceItems((prev) => prev.filter((x) => x.id !== m.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {maintenanceItems.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada catatan maintenance.</div>}
+              </div>
+            </div>
+            <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
+              <div style={{ fontSize: 16, fontWeight: 500 }}>Tambah maintenance</div>
+              <input value={maintenanceForm.equipment} onChange={(e) => setMaintenanceForm((p) => ({ ...p, equipment: e.target.value }))} placeholder="Nama mesin atau alat" style={fieldStyle(colors)} />
+              <textarea value={maintenanceForm.issue} onChange={(e) => setMaintenanceForm((p) => ({ ...p, issue: e.target.value }))} placeholder="Deskripsi masalah" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <input value={maintenanceForm.technician} onChange={(e) => setMaintenanceForm((p) => ({ ...p, technician: e.target.value }))} placeholder="Teknisi" style={fieldStyle(colors)} />
+              <select value={maintenanceForm.status} onChange={(e) => setMaintenanceForm((p) => ({ ...p, status: e.target.value }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <textarea value={maintenanceForm.notes} onChange={(e) => setMaintenanceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
+              <button
+                onClick={() => {
+                  if (!maintenanceForm.equipment.trim()) {
+                    window.alert("Nama mesin atau alat wajib diisi.");
+                    return;
+                  }
+                  setMaintenanceItems((prev) => [{ id: String(Date.now()), ...maintenanceForm, date: new Date().toISOString().slice(0, 10) }, ...prev]);
+                  setMaintenanceForm({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" });
+                }}
+                style={primaryButton(colors)}
+              >
+                Tambah maintenance
+              </button>
+            </aside>
+          </section>
+        )}
       </div>
     </div>
   );
 }
-
-export default App;
-// rebuild
