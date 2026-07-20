@@ -180,21 +180,17 @@ const sampleMaintenance: MaintenanceItem[] = [{ id: "1", equipment: "Ice Ball Ma
 
 const getToday = () => new Date().toISOString().slice(0, 10);
 
-// ✅ FIXED: Robust Date Normalizer (Handles DD/MM/YYYY & MM/DD/YYYY)
 const normalizeDate = (dateStr: string): string => {
   if (!dateStr) return getToday();
-  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) return dateStr; // Already YYYY-MM-DD
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) return dateStr; 
   const clean = dateStr.replace(/\./g, "/");
   const p = clean.split("/");
   if (p.length === 3) {
     const y = p[2];
     const a = parseInt(p[0], 10);
     const b = parseInt(p[1], 10);
-    // DD/MM/YYYY
     if (a > 12) return `${y}-${b.toString().padStart(2,'0')}-${a.toString().padStart(2,'0')}`;
-    // MM/DD/YYYY
     if (b > 12) return `${y}-${a.toString().padStart(2,'0')}-${b.toString().padStart(2,'0')}`;
-    // Default MM/DD
     return `${y}-${a.toString().padStart(2,'0')}-${b.toString().padStart(2,'0')}`;
   }
   return dateStr;
@@ -314,7 +310,7 @@ export default function App() {
     }
   };
 
-  // ✅ ULTRA-ROBUST CSV PARSER (Auto-detects 444.csv format)
+  // ✅ ULTRA-ROBUST CSV PARSER
   const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
@@ -353,7 +349,6 @@ export default function App() {
             return '';
           };
 
-          // Smart Mapping for 444.csv & Standard formats
           const rawTitle = get(['title', 'task', 'nama_task']);
           const rawDate = get(['deadline', 'date', 'tanggal']);
           const rawStart = get(['start_time', 'waktu_mulai', 'jam_mulai']);
@@ -363,7 +358,6 @@ export default function App() {
           const rawStatus = get(['status', 'status_task']);
           const rawAssignee = get(['assignee', 'penanggung_jawab', 'pic', 'karyawan']);
 
-          // Handle duplicate "Time,Time" headers in 444.csv
           let startTime = rawStart;
           let endTime = rawEnd;
           if (!startTime && !endTime) {
@@ -388,7 +382,8 @@ export default function App() {
             description: get(['description', 'deskripsi', 'keterangan']) || '',
             category,
             priority,
-            assignee: rawAssignee || currentUser.name,
+            // Use optional chaining here for safety if user is null (though unlikely)
+            assignee: rawAssignee || currentUser?.name || "Unknown", 
             deadline: normalizedDate,
             date: normalizedDate,
             startTime,
@@ -407,7 +402,6 @@ export default function App() {
         }
 
         setTasks(prev => [...newTasks, ...prev]);
-        // Auto-switch date picker to first imported task's date
         if(newTasks.length > 0) setSelectedDate(newTasks[0].date);
         addLog("TASK", `Imported ${newTasks.length} tasks via CSV`);
         window.alert(`✅ ${newTasks.length} ${t.csvSuccess}`);
@@ -497,7 +491,7 @@ export default function App() {
     pending: filteredTasks.filter(tk => tk.status === "Pending").length, 
     cancelled: filteredTasks.filter(tk => tk.status === "Cancelled").length 
   };
-  const pct = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
+  // ✅ ERROR FIX: Removed unused 'pct' variable that caused the build error
 
   const handleTaskPhotoUpload = (e: ChangeEvent<HTMLInputElement>, taskId: string) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -525,6 +519,7 @@ export default function App() {
   };
 
   const shareWhatsApp = () => {
+    // ✅ ERROR FIX: Use non-null assertion (!) since we return early if currentUser is null
     const dateStr = formatDate(selectedDate);
     const timeStr = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     const tasksList = filteredTasks.map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
@@ -532,8 +527,8 @@ export default function App() {
     const maintList = maintItems.filter(m => m.date === selectedDate).map(m => `• ${m.equipment}: ${m.issue} [${m.status}]`).join("\n") || "-";
     const meetingList = meetings.filter(m => m.date === selectedDate).map(m => `• ${m.title} (${m.time}) - ${m.attendees}`).join("\n") || "-";
     const notes = "Overall performance is good. All critical tasks completed on schedule.";
-    const reportLink = `https://your-domain.com/report/${selectedDate}/${encodeURIComponent(currentUser.name.toLowerCase().replace(/\s+/g, "-"))}`;
-    const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser.name.toUpperCase()}\n💼 Role : ${currentUser.roleTitle}\n🕒 Shift : ${currentUser.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ TASKS\n${tasksList}\n\n📦 STOCK OPNAME\n${stockList}\n\n🔧 MAINTENANCE\n${maintList}\n\n📝 MEETING\n${meetingList}\n\n📌 NOTES\n${notes}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View report: ${reportLink}`;
+    const reportLink = `https://your-domain.com/report/${selectedDate}/${encodeURIComponent(currentUser!.name.toLowerCase().replace(/\s+/g, "-"))}`;
+    const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser!.name.toUpperCase()}\n💼 Role : ${currentUser!.roleTitle}\n🕒 Shift : ${currentUser!.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ TASKS\n${tasksList}\n\n📦 STOCK OPNAME\n${stockList}\n\n🔧 MAINTENANCE\n${maintList}\n\n📝 MEETING\n${meetingList}\n\n📌 NOTES\n${notes}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser!.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View report: ${reportLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
 
