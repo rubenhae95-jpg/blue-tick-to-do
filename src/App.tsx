@@ -5,6 +5,7 @@ type TaskStatus = "Pending" | "In progress" | "Completed" | "Cancelled";
 type Priority = "High" | "Medium" | "Low";
 type Theme = "light" | "dark";
 type Tab = "tasks" | "stock" | "meeting" | "maintenance";
+type Lang = "id" | "en";
 
 type CurrentUser = {
   name: string;
@@ -28,6 +29,7 @@ type Task = {
   startTime?: string;
   endTime?: string;
   reason?: string;
+  imageUrl?: string;
 };
 
 type Colors = {
@@ -48,6 +50,8 @@ type StockItem = {
   item: string;
   unit: string;
   stock: number;
+  masuk: number;
+  keluar: number;
   notes: string;
   updatedAt: string;
 };
@@ -72,8 +76,12 @@ type MaintenanceItem = {
 };
 
 const categories: string[] = [
-  "Production", "Delivery", "Cleaning", "Maintenance",
-  "Office", "Warehouse", "Administration", "Others",
+  "Factory Supervisor",
+  "Factory Logistik",
+  "Driver",
+  "Production Cleaning",
+  "Office",
+  "Others",
 ];
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
@@ -86,150 +94,114 @@ const statusStyles: Record<TaskStatus, { bg: string; text: string }> = {
   Cancelled: { bg: "#fde8e8", text: "#a12626" },
 };
 
-const t = {
-  darkMode: "Mode gelap",
-  lightMode: "Mode terang",
-  totalTasks: "Total tugas",
-  completed: "Selesai",
-  remaining: "Belum selesai",
-  pending: "Pending",
-  shareDescription: "Bagikan laporan harian kamu ke WhatsApp.",
-  taskFormTitle: "Tambah atau edit task",
-  adminStaffNote: "Admin dan staff dapat membuat task. Edit dan hapus hanya untuk admin.",
-  titlePlaceholder: "Judul tugas",
-  descriptionPlaceholder: "Deskripsi tugas",
-  assigneePlaceholder: "Penanggung jawab",
-  notesPlaceholder: "Catatan internal",
-  reasonPlaceholder: "Alasan jika pending atau in progress",
-  saveChanges: "Simpan perubahan",
-  addTask: "Tambah task",
-  alertTitleRequired: "Judul tugas wajib diisi.",
-  alertAssigneeRequired: "Penanggung jawab wajib diisi.",
-  taskCreatedByRole: "tugas dibuat oleh",
-  limitReached: "Batas tercapai untuk menambah tugas baru.",
-  canAddTask: "Peran ini dapat membuat task baru.",
+const translations = {
+  id: {
+    darkMode: "Mode gelap", lightMode: "Mode terang",
+    totalTasks: "Total tugas", completed: "Selesai", remaining: "Belum selesai", pending: "Pending",
+    shareDescription: "Bagikan laporan harian ke WhatsApp.",
+    taskFormTitle: "Tambah / Edit Task", adminStaffNote: "Admin & Staff bisa buat task. Edit/Hapus bebas.",
+    titlePlaceholder: "Judul tugas", descriptionPlaceholder: "Deskripsi tugas",
+    assigneePlaceholder: "Penanggung jawab", notesPlaceholder: "Catatan internal",
+    reasonPlaceholder: "Alasan pending/progress", saveChanges: "Simpan", addTask: "Tambah task",
+    alertTitleRequired: "Judul wajib diisi.", alertAssigneeRequired: "Assignee wajib diisi.",
+    taskCreatedByRole: "tugas oleh", limitReached: "Batas task tercapai.", canAddTask: "Dapat menambah task.",
+    subtitle: "Daily Task Operations", logoUpload: "Ganti logo", logout: "Keluar",
+    tasks: "Tasks", stock: "Stok Opname", meeting: "Meeting", maintenance: "Maintenance",
+    progress: "Progress Detail", checklist: "Checklist", undo: "Undo", edit: "Edit", delete: "Hapus",
+    addNote: "Catatan tambahan", noTasks: "Tidak ada task.", searchPlaceholder: "Cari tugas", all: "Semua",
+    deadline: "Deadline", created: "Dibuat", time: "Waktu", reason: "Alasan",
+    importCsv: "Import CSV Bulk", uploadPhoto: "📷 Foto", stockTitle: "Stok Opname",
+    updateLast: "Update", addNewItem: "Tambah item", itemName: "Nama item", initialStock: "Stok awal",
+    incoming: "Masuk", outgoing: "Keluar", currentStock: "Sisa", deleteItem: "Hapus item",
+    noStock: "Kosong.", meetingTitle: "Meeting", attendees: "Peserta", scheduleMeeting: "Jadwalkan",
+    meetingName: "Judul", date: "Tanggal", timeInput: "Waktu", attendeesInput: "Peserta",
+    agenda: "Agenda", addMeeting: "Tambah meeting", noMeeting: "Kosong.",
+    maintTitle: "Maintenance", addMaint: "Tambah maintenance", equipName: "Peralatan",
+    issueDesc: "Masalah", techName: "Teknisi", maintNotes: "Catatan", addMaintBtn: "Tambah", noMaint: "Kosong.",
+    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Masuk untuk mulai",
+    loginName: "Nama", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.",
+    pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
+    csvSuccess: "Berhasil!", csvError: "Gagal parse CSV. Format: title,description,category,priority,assignee,deadline,status",
+  },
+  en: {
+    darkMode: "Dark mode", lightMode: "Light mode",
+    totalTasks: "Total tasks", completed: "Completed", remaining: "Remaining", pending: "Pending",
+    shareDescription: "Share daily report to WhatsApp.",
+    taskFormTitle: "Add / Edit Task", adminStaffNote: "Admin & Staff can create. Edit/Delete open.",
+    titlePlaceholder: "Task title", descriptionPlaceholder: "Description",
+    assigneePlaceholder: "Assignee", notesPlaceholder: "Notes",
+    reasonPlaceholder: "Reason if pending/progress", saveChanges: "Save", addTask: "Add task",
+    alertTitleRequired: "Title required.", alertAssigneeRequired: "Assignee required.",
+    taskCreatedByRole: "tasks by", limitReached: "Limit reached.", canAddTask: "Can add tasks.",
+    subtitle: "Daily Task Operations", logoUpload: "Change logo", logout: "Logout",
+    tasks: "Tasks", stock: "Stock Opname", meeting: "Meeting", maintenance: "Maintenance",
+    progress: "Detailed Progress", checklist: "Checklist", undo: "Undo", edit: "Edit", delete: "Delete",
+    addNote: "Add note", noTasks: "No tasks.", searchPlaceholder: "Search", all: "All",
+    deadline: "Deadline", created: "Created", time: "Time", reason: "Reason",
+    importCsv: "Bulk Import CSV", uploadPhoto: "📷 Photo", stockTitle: "Stock Opname",
+    updateLast: "Updated", addNewItem: "Add item", itemName: "Item name", initialStock: "Initial Stock",
+    incoming: "In", outgoing: "Out", currentStock: "Remaining", deleteItem: "Delete item",
+    noStock: "Empty.", meetingTitle: "Meeting", attendees: "Attendees", scheduleMeeting: "Schedule",
+    meetingName: "Title", date: "Date", timeInput: "Time", attendeesInput: "Attendees",
+    agenda: "Agenda", addMeeting: "Add meeting", noMeeting: "Empty.",
+    maintTitle: "Maintenance", addMaint: "Add maintenance", equipName: "Equipment",
+    issueDesc: "Issue", techName: "Technician", maintNotes: "Notes", addMaintBtn: "Add", noMaint: "Empty.",
+    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Login to start",
+    loginName: "Name", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.",
+    pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
+    csvSuccess: "Imported successfully!", csvError: "CSV parse failed. Format: title,description,category,priority,assignee,deadline,status",
+  },
 };
 
 const sampleTasks: Task[] = [
-  { id: "1", title: "Clean machine", description: "Bersihkan mesin utama agar siap digunakan.", category: "Production", priority: "High", assignee: "Budi", deadline: "2026-07-17", status: "Completed", notes: "Selesai pagi ini.", createdAt: "2026-07-17", startTime: "08:00", endTime: "09:10", createdByRole: "Admin" },
-  { id: "2", title: "Wash mold", description: "Cuci cetakan setelah produksi.", category: "Maintenance", priority: "Medium", assignee: "Ani", deadline: "2026-07-17", status: "Completed", notes: "Tidak ada masalah.", createdAt: "2026-07-17" },
-  { id: "3", title: "Prepare delivery", description: "Siapkan barang dan dokumen pengiriman.", category: "Delivery", priority: "High", assignee: "Siti", deadline: "2026-07-17", status: "In progress", notes: "Menunggu armada.", startTime: "10:00", endTime: "12:30", reason: "Tim produksi belum siap mengangkut.", createdAt: "2026-07-17" },
-  { id: "4", title: "Check water pump", description: "Periksa pompa air area produksi.", category: "Maintenance", priority: "Low", assignee: "Dedi", deadline: "2026-07-18", status: "Pending", notes: "Belum dilakukan.", createdAt: "2026-07-17", createdByRole: "Admin" },
-  { id: "5", title: "Maintenance Updated and Planning", description: "Update rencana maintenance mingguan.", category: "Maintenance", priority: "Medium", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Jadwal minggu depan sudah disusun.", createdAt: "2026-07-18", endTime: "13:59" },
-  { id: "6", title: "Bike Delivery", description: "Antar pesanan menggunakan motor.", category: "Delivery", priority: "Medium", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Semua pesanan sampai tepat waktu.", createdAt: "2026-07-18", endTime: "12:03" },
-  { id: "7", title: "Factory Cleaning", description: "Bersihkan area pabrik.", category: "Cleaning", priority: "Low", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Area produksi dan gudang sudah rapi.", createdAt: "2026-07-18", endTime: "12:03" },
-  { id: "8", title: "Cocktails Ice Prep", description: "Siapkan es untuk kebutuhan cocktail.", category: "Production", priority: "High", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Stok es siap untuk shift malam.", createdAt: "2026-07-18", endTime: "13:53" },
-  { id: "9", title: "Helping Organize Melting Bags", description: "Bantu menyusun kantong es yang meleleh.", category: "Warehouse", priority: "Low", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Completed", notes: "Sudah dipisahkan sesuai kondisi.", createdAt: "2026-07-18", endTime: "13:59" },
-  { id: "10", title: "Ice Ball Harvest & Production", description: "Panen dan produksi ice ball.", category: "Production", priority: "High", assignee: "Ruben Hina", deadline: "2026-07-18", status: "Pending", notes: "", reason: "Still Watery", createdAt: "2026-07-18" },
+  { id: "1", title: "Clean machine", description: "Bersihkan mesin utama.", category: "Production Cleaning", priority: "High", assignee: "Budi", deadline: "2026-07-17", status: "Completed", notes: "Selesai.", createdAt: "2026-07-17", startTime: "08:00", endTime: "09:10", createdByRole: "Admin" },
+  { id: "2", title: "Wash mold", description: "Cuci cetakan.", category: "Factory Supervisor", priority: "Medium", assignee: "Ani", deadline: "2026-07-17", status: "Completed", notes: "OK.", createdAt: "2026-07-17" },
+  { id: "3", title: "Prepare delivery", description: "Siapkan pengiriman.", category: "Factory Logistik", priority: "High", assignee: "Siti", deadline: "2026-07-17", status: "In progress", notes: "Menunggu.", createdAt: "2026-07-17" },
+  { id: "4", title: "Check pump", description: "Cek pompa air.", category: "Production Cleaning", priority: "Low", assignee: "Dedi", deadline: "2026-07-18", status: "Pending", notes: "-", createdAt: "2026-07-17", createdByRole: "Admin" },
 ];
 
 const sampleStock: StockItem[] = [
-  { id: "1", item: "Es batu kristal", unit: "kg", stock: 120, notes: "Stok aman", updatedAt: "2026-07-18" },
-  { id: "2", item: "Kantong es", unit: "pcs", stock: 340, notes: "Perlu tambah minggu depan", updatedAt: "2026-07-18" },
-  { id: "3", item: "Sirup cocktail", unit: "botol", stock: 18, notes: "", updatedAt: "2026-07-17" },
+  { id: "1", item: "Es kristal", unit: "kg", stock: 150, masuk: 20, keluar: 50, notes: "Aman", updatedAt: "2026-07-18" },
+  { id: "2", item: "Kantong", unit: "pcs", stock: 400, masuk: 0, keluar: 60, notes: "Low", updatedAt: "2026-07-18" },
 ];
 
 const sampleMeetings: Meeting[] = [
-  { id: "1", title: "Briefing produksi harian", date: "2026-07-19", time: "07:30", attendees: "Ruben Hina, Budi, Siti", notes: "Bahas target produksi hari ini." },
+  { id: "1", title: "Briefing", date: "2026-07-19", time: "07:30", attendees: "Budi, Siti", notes: "Target harian" },
 ];
 
 const sampleMaintenance: MaintenanceItem[] = [
-  { id: "1", equipment: "Mesin ice ball", issue: "Suara berisik saat beroperasi", technician: "Dedi", status: "In progress", date: "2026-07-18", notes: "Menunggu spare part." },
+  { id: "1", equipment: "Ice Ball Machine", issue: "Noise", technician: "Dedi", status: "In progress", date: "2026-07-18", notes: "Wait part" },
 ];
 
-const formatDate = (dateString: string): string => {
-  if (!dateString) return "-";
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
-};
+const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+const formatTimeRange = (t: Task) => t.startTime && t.endTime ? `${t.startTime} - ${t.endTime}` : "-";
 
-const formatDateShort = (date: Date): string =>
-  date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const getColors = (theme: Theme): Colors => theme === "light"
+  ? { page: "#EAF3FC", card: "#FFFFFF", cardMuted: "#F0F7FE", text: "#16324A", muted: "#5B7690", border: "rgba(22,50,74,0.10)", borderStrong: "rgba(22,50,74,0.20)", accent: "#2F7FE0", accentBg: "#DCEBFB", danger: "#B33636" }
+  : { page: "#0E1B2B", card: "#152840", cardMuted: "#1B324E", text: "#EAF3FC", muted: "#93AFC9", border: "rgba(234,243,252,0.10)", borderStrong: "rgba(234,243,252,0.20)", accent: "#7DD3FC", accentBg: "#1E3A57", danger: "#E8A0A0" };
 
-const formatTimeRange = (task: Task): string => {
-  if (!task.startTime && !task.endTime) return "";
-  return `${task.startTime || "-"} - ${task.endTime || "-"}`;
-};
+const fieldStyle = (c: Colors) => ({ width: "100%", borderRadius: 8, border: `0.5px solid ${c.border}`, padding: "8px 11px", background: c.cardMuted, color: c.text, fontSize: 13.5, fontFamily: "inherit", boxSizing: "border-box" as const });
+const secondaryBtn = (c: Colors) => ({ borderRadius: 8, border: `0.5px solid ${c.borderStrong}`, padding: "8px 13px", background: "transparent", color: c.text, cursor: "pointer", fontSize: 13.5 });
+const primaryBtn = (c: Colors) => ({ borderRadius: 8, border: "none", padding: "9px 15px", background: c.accent, color: "#FFFFFF", cursor: "pointer", fontSize: 13.5 });
 
-const getTaskDuration = (task: Task): string => {
-  if (!task.startTime || !task.endTime) return "";
-  const [startHour, startMinute] = task.startTime.split(":").map(Number);
-  const [endHour, endMinute] = task.endTime.split(":").map(Number);
-  const startMinutes = startHour * 60 + startMinute;
-  const endMinutes = endHour * 60 + endMinute;
-  if (isNaN(startMinutes) || isNaN(endMinutes) || endMinutes < startMinutes) return "";
-  const diff = endMinutes - startMinutes;
-  const hours = Math.floor(diff / 60);
-  const minutes = diff % 60;
-  return `${hours ? `${hours}j` : ""}${hours && minutes ? " " : ""}${minutes ? `${minutes}m` : ""}`.trim();
-};
-
-const getColors = (theme: Theme): Colors =>
-  theme === "light"
-    ? {
-        page: "#EAF3FC", card: "#FFFFFF", cardMuted: "#F0F7FE", text: "#16324A", muted: "#5B7690",
-        border: "rgba(22,50,74,0.10)", borderStrong: "rgba(22,50,74,0.20)", accent: "#2F7FE0", accentBg: "#DCEBFB", danger: "#B33636",
-      }
-    : {
-        page: "#0E1B2B", card: "#152840", cardMuted: "#1B324E", text: "#EAF3FC", muted: "#93AFC9",
-        border: "rgba(234,243,252,0.10)", borderStrong: "rgba(234,243,252,0.20)", accent: "#7DD3FC", accentBg: "#1E3A57", danger: "#E8A0A0",
-      };
-
-const fieldStyle = (colors: Colors): React.CSSProperties => ({
-  width: "100%", borderRadius: 8, border: `0.5px solid ${colors.border}`, padding: "8px 11px",
-  background: colors.cardMuted, color: colors.text, fontSize: 13.5, fontFamily: "inherit", boxSizing: "border-box",
-});
-
-const secondaryButton = (colors: Colors): React.CSSProperties => ({
-  borderRadius: 8, border: `0.5px solid ${colors.borderStrong}`, padding: "8px 13px",
-  background: "transparent", color: colors.text, cursor: "pointer", fontSize: 13.5,
-});
-
-const primaryButton = (colors: Colors): React.CSSProperties => ({
-  borderRadius: 8, border: "none", padding: "9px 15px", background: colors.accent,
-  color: "#FFFFFF", cursor: "pointer", fontSize: 13.5,
-});
-
-const tabButton = (colors: Colors, active: boolean): React.CSSProperties => ({
-  borderRadius: 8, border: active ? "none" : `0.5px solid ${colors.borderStrong}`, padding: "7px 13px",
-  background: active ? colors.accent : "transparent", color: active ? "#FFFFFF" : colors.text,
-  cursor: "pointer", fontSize: 13.5,
-});
-
-function LoginScreen({ colors, onLogin }: { colors: Colors; onLogin: (user: CurrentUser) => void }) {
-  const [name, setName] = useState("");
-  const [roleTitle, setRoleTitle] = useState("");
-  const [permissionRole, setPermissionRole] = useState<PermissionRole>("Staff");
-  const [shift, setShift] = useState("Day");
-  const [error, setError] = useState("");
-
-  const submit = () => {
-    if (!name.trim()) { setError("Nama wajib diisi."); return; }
-    setError("");
-    onLogin({ name: name.trim(), roleTitle: roleTitle.trim() || "Staff", permissionRole, shift });
-  };
-
+function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: CurrentUser) => void; t: typeof translations.id }) {
+  const [name, setName] = useState(""); const [roleTitle, setRoleTitle] = useState(""); const [role, setRole] = useState<PermissionRole>("Staff"); const [shift, setShift] = useState("Day"); const [err, setErr] = useState("");
+  const submit = () => { if (!name.trim()) { setErr(t.nameRequired); return; } setErr(""); onLogin({ name: name.trim(), roleTitle: roleTitle.trim() || "Staff", permissionRole: role, shift }); };
   return (
-    <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 24, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 24, fontFamily: "'Inter', sans-serif" }}>
       <div style={{ width: 320, background: colors.card, borderRadius: 12, border: `0.5px solid ${colors.border}`, padding: 24 }}>
-        <div style={{ fontSize: 26, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, marginBottom: 4 }}>BLUE TICK ICE</div>
-        <div style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>Masuk dengan nama kamu untuk mulai</div>
+        <div style={{ fontSize: 12, color: colors.muted }}>{t.loginSubtitle}</div>
+        <div style={{ fontSize: 26, fontFamily: "'Bebas Neue', sans-serif", color: colors.accent, marginBottom: 4 }}>{t.loginTitle}</div>
+        <div style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>{t.loginDesc}</div>
         <div style={{ display: "grid", gap: 10 }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama" style={fieldStyle(colors)} onKeyDown={(e) => e.key === "Enter" && submit()} />
-          <input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} placeholder="Jabatan (contoh: Factory Supervisor)" style={fieldStyle(colors)} />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t.loginName} style={fieldStyle(colors)} onKeyDown={e => e.key === "Enter" && submit()} />
+          <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder={t.loginRole} style={fieldStyle(colors)} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <select value={permissionRole} onChange={(e) => setPermissionRole(e.target.value as PermissionRole)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
-              <option value="Staff">Staff</option>
-              <option value="Admin">Admin</option>
-            </select>
-            <select value={shift} onChange={(e) => setShift(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
-              {shifts.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <select value={role} onChange={e => setRole(e.target.value as PermissionRole)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>Staff</option><option>Admin</option></select>
+            <select value={shift} onChange={e => setShift(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{shifts.map(s => <option key={s}>{s}</option>)}</select>
           </div>
-          {error && <div style={{ fontSize: 12, color: colors.danger }}>{error}</div>}
-          <button onClick={submit} style={primaryButton(colors)}>Masuk</button>
-          <div style={{ fontSize: 11, color: colors.muted, marginTop: 4, lineHeight: 1.6 }}>Ini identitas untuk pratinjau saja — tidak ada verifikasi password.</div>
+          {err && <div style={{ fontSize: 12, color: colors.danger }}>{err}</div>}
+          <button onClick={submit} style={primaryBtn(colors)}>{t.loginBtn}</button>
         </div>
       </div>
     </div>
@@ -239,363 +211,317 @@ function LoginScreen({ colors, onLogin }: { colors: Colors; onLogin: (user: Curr
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme>("light");
+  const [lang, setLang] = useState<Lang>("id");
   const colors = getColors(theme);
+  const t = translations[lang];
   const [activeTab, setActiveTab] = useState<Tab>("tasks");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const [tasks, setTasks] = useState<Task[]>(sampleTasks);
   const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState("All");
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [filterPriority, setFilterPriority] = useState("All");
-
-  const [taskForm, setTaskForm] = useState<Partial<Task>>({
-    title: "", description: "", category: "Production", priority: "Medium", assignee: "",
-    deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "",
-    startTime: "", endTime: "", reason: "",
-  });
-
+  const [filterCat, setFilterCat] = useState("All"); const [filterStat, setFilterStat] = useState("All"); const [filterPri, setFilterPri] = useState("All");
+  const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: "", description: "", category: "Production Cleaning", priority: "Medium", assignee: "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   const [stockItems, setStockItems] = useState<StockItem[]>(sampleStock);
-  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", notes: "" });
-
+  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "" });
   const [meetings, setMeetings] = useState<Meeting[]>(sampleMeetings);
   const [meetingForm, setMeetingForm] = useState({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
+  const [maintItems, setMaintItems] = useState<MaintenanceItem[]>(sampleMaintenance);
+  const [maintForm, setMaintForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending" as TaskStatus, notes: "" });
 
-  const [maintenanceItems, setMaintenanceItems] = useState<MaintenanceItem[]>(sampleMaintenance);
-  const [maintenanceForm, setMaintenanceForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending" as TaskStatus, notes: "" });
+  if (!currentUser) return <LoginScreen colors={colors} t={t} onLogin={u => { setCurrentUser(u); setTaskForm(p => ({ ...p, assignee: u.permissionRole === "Staff" ? u.name : p.assignee })); }} />;
 
-  if (!currentUser) {
-    return (
-      <LoginScreen colors={colors} onLogin={(user) => {
-        setCurrentUser(user);
-        setTaskForm((prev) => ({ ...prev, assignee: user.permissionRole === "Staff" ? user.name : prev.assignee }));
-      }} />
-    );
-  }
+  const filtered = tasks.filter(tk => {
+    const s = !search || tk.title.toLowerCase().includes(search.toLowerCase()) || tk.assignee.toLowerCase().includes(search.toLowerCase());
+    const c = filterCat === "All" || tk.category === filterCat;
+    const st = filterStat === "All" || tk.status === filterStat;
+    const p = filterPri === "All" || tk.priority === filterPri;
+    return s && c && st && p && (currentUser.permissionRole === "Admin" || tk.assignee === currentUser.name);
+  }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
 
-  const role = currentUser.permissionRole;
+  const stats = {
+    total: filtered.length,
+    completed: filtered.filter(tk => tk.status === "Completed").length,
+    inProgress: filtered.filter(tk => tk.status === "In progress").length,
+    pending: filtered.filter(tk => tk.status === "Pending").length,
+    cancelled: filtered.filter(tk => tk.status === "Cancelled").length,
+  };
+  const pct = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
 
-  const filteredTasks = tasks
-    .filter((task) => {
-      const matchesSearch = !search || task.title.toLowerCase().includes(search.toLowerCase()) || task.description.toLowerCase().includes(search.toLowerCase()) || task.assignee.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = filterCategory === "All" || task.category === filterCategory;
-      const matchesStatus = filterStatus === "All" || task.status === filterStatus;
-      const matchesPriority = filterPriority === "All" || task.priority === filterPriority;
-      const matchesUser = role === "Admin" || task.assignee === currentUser.name;
-      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesUser;
-    })
-    .sort((a, b) => {
-      const order: Record<Priority, number> = { High: 0, Medium: 1, Low: 2 };
-      return order[a.priority] - order[b.priority];
-    });
+  // ✅ FIXED: Robust CSV Parser
+  const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+        if (lines.length < 2) { window.alert("CSV harus memiliki header dan minimal 1 baris data."); return; }
+        
+        const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+        const newTasks: Task[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(",").map(c => c.trim());
+          const get = (name: string) => {
+            const idx = headers.indexOf(name.toLowerCase());
+            return idx >= 0 ? cols[idx] || "" : "";
+          };
+          
+          newTasks.push({
+            id: String(Date.now() + Math.random()),
+            title: get("title") || "Untitled",
+            description: get("description") || "",
+            category: categories.find(c => c.toLowerCase() === get("category").toLowerCase()) || get("category") || "Others",
+            priority: (priorities.find(p => p.toLowerCase() === get("priority").toLowerCase()) || "Medium") as Priority,
+            assignee: get("assignee") || "",
+            deadline: get("deadline") || new Date().toISOString().slice(0, 10),
+            status: (statuses.find(s => s.toLowerCase() === get("status").toLowerCase()) || "Pending") as TaskStatus,
+            notes: "", createdAt: new Date().toISOString().slice(0, 10), createdByRole: "Staff"
+          });
+        }
+        
+        setTasks(prev => [...newTasks, ...prev]);
+        window.alert(`${newTasks.length} ${t.csvSuccess}`);
+      } catch { window.alert(t.csvError); }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
 
-  const totalCount = filteredTasks.length;
-  const completedCount = filteredTasks.filter((task) => task.status === "Completed").length;
-  const pendingCount = filteredTasks.filter((task) => task.status === "Pending").length;
-  const remainingCount = filteredTasks.filter((task) => task.status !== "Completed" && task.status !== "Cancelled").length;
-  const taskLimit = 50;
-  const roleTaskCount = tasks.filter((task) => task.createdByRole === role).length;
-  const taskLimitReached = roleTaskCount >= taskLimit;
-  const completionPercent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
-
-  const handleFormChange = (field: keyof Task, value: string) => setTaskForm((prev) => ({ ...prev, [field]: value }));
+  const handleTaskPhotoUpload = (e: ChangeEvent<HTMLInputElement>, taskId: string) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, imageUrl: reader.result } : tk));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSaveTask = () => {
     if (!taskForm.title?.trim()) { window.alert(t.alertTitleRequired); return; }
     if (!taskForm.assignee?.trim()) { window.alert(t.alertAssigneeRequired); return; }
     const isNew = !taskForm.id;
-    if (isNew && taskLimitReached) { window.alert(`Batas ${taskLimit} tugas untuk peran ${role} telah tercapai.`); return; }
-    if (!isNew && role !== "Admin") { window.alert("Edit tugas hanya diperbolehkan oleh admin."); return; }
-
-    const normalizedTask: Task = {
-      id: taskForm.id || String(Date.now()),
-      title: taskForm.title, description: taskForm.description || "", category: taskForm.category || "Production",
-      priority: (taskForm.priority || "Medium") as Priority, assignee: taskForm.assignee,
-      deadline: taskForm.deadline || new Date().toISOString().slice(0, 10), status: (taskForm.status || "Pending") as TaskStatus,
-      notes: taskForm.notes || "", createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10),
-      createdByRole: taskForm.createdByRole || role, startTime: taskForm.startTime, endTime: taskForm.endTime, reason: taskForm.reason || "",
-    };
-
-    setTasks((prev) => {
-      const exists = prev.some((item) => item.id === normalizedTask.id);
-      if (exists) return prev.map((item) => (item.id === normalizedTask.id ? normalizedTask : item));
-      return [normalizedTask, ...prev];
-    });
-
-    setTaskForm({
-      title: "", description: "", category: "Production", priority: "Medium",
-      assignee: role === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10),
-      status: "Pending", notes: "", startTime: "", endTime: "", reason: "",
-    });
-  };
-
-  const handleEditTask = (task: Task) => setTaskForm(task);
-  const handleDeleteTask = (id: string) => setTasks((prev) => prev.filter((task) => task.id !== id));
-
-  const handleStatusToggle = (task: Task) => {
-    if (role === "Staff" && task.assignee === currentUser.name) {
-      setTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, status: item.status === "Completed" ? "In progress" : "Completed" } : item));
-    }
-  };
-
-  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => { if (typeof reader.result === "string") setLogoUrl(reader.result); };
-    reader.readAsDataURL(file);
-  };
-
-  const handleResetLogo = () => setLogoUrl(null);
-
-  const updateStock = (id: string, nextStock: number) => {
-    setStockItems((prev) => prev.map((item) => (item.id === id ? { ...item, stock: nextStock, updatedAt: new Date().toISOString().slice(0, 10) } : item)));
-  };
-
-  const shareWhatsApp = () => {
-    const userTasks = tasks.filter((task) => task.assignee === currentUser.name);
-    const completedTasks = userTasks.filter((task) => task.status === "Completed");
-    const pendingTasks = userTasks.filter((task) => task.status === "Pending" || task.status === "In progress");
-    const assigned = userTasks.length;
-    const completed = completedTasks.length;
-    const pending = pendingTasks.length;
-    const rate = assigned ? Math.round((completed / assigned) * 100) : 0;
-
-    const now = new Date();
-    const divider = "━━━━━━━━━━━━━━━━━━";
-
-    const completedLines = completedTasks.flatMap((task, index) => {
-      const time = task.endTime || task.startTime || "-";
-      const lines = [`${index + 1}. ${task.title} 🕒 ✓ ${time}`];
-      if (task.notes) lines.push(`   📝 ${task.notes}`);
-      return lines;
-    });
-
-    const pendingLines = pendingTasks.flatMap((task) => {
-      const lines = [`• ${task.title}`];
-      if (task.reason) lines.push(`  Reason: ${task.reason}`);
-      return lines;
-    });
-
-    const lines = [
-      "📋 DAILY TASK REPORT", `👤 Employee : ${currentUser.name.toUpperCase()}`, `💼 Role : ${currentUser.roleTitle}`,
-      `🕒 Shift : ${currentUser.shift}`, `📅 Date : ${formatDateShort(now)}`, divider, "📊 TASK SUMMARY",
-      `📌 Assigned : ${assigned}`, `✅ Completed : ${completed}`, `⏳ Pending : ${pending}`, `📈 Completion Rate : ${rate}%`,
-      divider, "✅ COMPLETED TASKS", ...(completedLines.length ? completedLines : ["-"]), divider,
-      "⏳ PENDING TASKS", ...(pendingLines.length ? pendingLines : ["-"]), divider,
-      `📤 Submitted by: ${currentUser.name.toUpperCase()}`,
-      `🕒 Submitted: ${formatDateShort(now)} | ${now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`,
-    ].join("\n");
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
+    const norm: Task = { id: taskForm.id || String(Date.now()), title: taskForm.title, description: taskForm.description || "", category: taskForm.category || "Production Cleaning", priority: (taskForm.priority || "Medium") as Priority, assignee: taskForm.assignee, deadline: taskForm.deadline || new Date().toISOString().slice(0, 10), status: (taskForm.status || "Pending") as TaskStatus, notes: taskForm.notes || "", createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10), createdByRole: taskForm.createdByRole || currentUser.permissionRole, startTime: taskForm.startTime, endTime: taskForm.endTime, reason: taskForm.reason || "", imageUrl: taskForm.imageUrl || "" };
+    setTasks(prev => { const exists = prev.some(i => i.id === norm.id); return exists ? prev.map(i => i.id === norm.id ? norm : i) : [norm, ...prev]; });
+    setTaskForm({ title: "", description: "", category: "Production Cleaning", priority: "Medium", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: 20, transition: "background 0.2s, color 0.2s" }}>
+    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', sans-serif", padding: 20, transition: "background 0.2s, color 0.2s" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');`}</style>
-
       <div style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gap: 16 }}>
         <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, background: colors.card, borderRadius: 12, border: `0.5px solid ${colors.border}`, padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ position: "relative" }}>
               <div style={{ width: 40, height: 40, borderRadius: 9, background: colors.accentBg, color: colors.accent, display: "grid", placeItems: "center", fontSize: 16, fontWeight: 500, overflow: "hidden" }}>
-                {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "✓"}
+                {logoUrl ? <img src={logoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "✓"}
               </div>
-              <label title="Ganti logo" style={{ position: "absolute", bottom: -3, right: -3, width: 16, height: 16, borderRadius: "50%", background: colors.accent, color: "#fff", display: "grid", placeItems: "center", fontSize: 10, cursor: "pointer", border: `2px solid ${colors.card}` }}>
-                +
-                <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
+              <label title={t.logoUpload} style={{ position: "absolute", bottom: -3, right: -3, width: 16, height: 16, borderRadius: "50%", background: colors.accent, color: "#fff", display: "grid", placeItems: "center", fontSize: 10, cursor: "pointer", border: `2px solid ${colors.card}` }}>
+                + <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if(f){const r=new FileReader();r.onload=()=>setLogoUrl(r.result as string);r.readAsDataURL(f)}}} style={{ display: "none" }} />
               </label>
             </div>
-            <div style={{ fontSize: 22, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, lineHeight: 1 }}>BLUE TICK ICE</div>
-            {logoUrl && <button onClick={handleResetLogo} style={{ ...secondaryButton(colors), padding: "5px 10px", fontSize: 12 }}>Reset logo</button>}
+            <div>
+              <div style={{ fontSize: 12, color: colors.muted }}>{t.subtitle}</div>
+              <div style={{ fontSize: 22, fontFamily: "'Bebas Neue', sans-serif", color: colors.accent, lineHeight: 1 }}>{t.loginTitle}</div>
+            </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 13, color: colors.muted }}>{currentUser.name} · {currentUser.roleTitle}</div>
-            <button onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))} style={secondaryButton(colors)}>
-              {theme === "light" ? t.darkMode : t.lightMode}
-            </button>
-            <button onClick={() => setCurrentUser(null)} style={secondaryButton(colors)}>Keluar</button>
+            <span style={{ fontSize: 13, color: colors.muted }}>{currentUser.name} · {currentUser.roleTitle}</span>
+            <button onClick={() => setLang(l => l === "id" ? "en" : "id")} style={secondaryBtn(colors)}>{lang === "id" ? "EN" : "ID"}</button>
+            <button onClick={() => setTheme(th => th === "light" ? "dark" : "light")} style={secondaryBtn(colors)}>{theme === "light" ? t.darkMode : t.lightMode}</button>
+            <button onClick={() => setCurrentUser(null)} style={secondaryBtn(colors)}>{t.logout}</button>
           </div>
         </header>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {([["tasks", "Tasks"], ["stock", "Stok opname"], ["meeting", "Meeting"], ["maintenance", "Maintenance"]] as [Tab, string][]).map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} style={tabButton(colors, activeTab === key)}>{label}</button>
-          ))}
+        {/* ✅ DROPDOWN NAVIGATION */}
+        <div style={{ display: "grid", gap: 8 }}>
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as Tab)}
+            style={{ ...fieldStyle(colors), maxWidth: 280, cursor: "pointer", fontWeight: 500 }}
+          >
+            <option value="tasks">{t.tasks}</option>
+            <option value="stock">{t.stock}</option>
+            <option value="meeting">{t.meeting}</option>
+            <option value="maintenance">{t.maintenance}</option>
+          </select>
         </div>
 
-        {activeTab === "tasks" && (
-          <>
-            <section style={{ display: "grid", gap: 12, gridTemplateColumns: "1.6fr 1fr" }}>
-              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", alignItems: "center", gap: 24 }}>
-                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                  <div><div style={{ fontSize: 12, color: colors.muted }}>{t.totalTasks}</div><div style={{ fontSize: 18, fontWeight: 500 }}>{totalCount}</div></div>
-                  <div><div style={{ fontSize: 12, color: colors.muted }}>{t.completed}</div><div style={{ fontSize: 18, fontWeight: 500 }}>{completedCount}</div></div>
-                  <div><div style={{ fontSize: 12, color: colors.muted }}>{t.remaining}</div><div style={{ fontSize: 18, fontWeight: 500 }}>{remainingCount}</div></div>
-                  <div><div style={{ fontSize: 12, color: colors.muted }}>{t.pending}</div><div style={{ fontSize: 18, fontWeight: 500 }}>{pendingCount}</div></div>
-                </div>
-                <div style={{ flex: 1, minWidth: 120 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: colors.muted, marginBottom: 4 }}><span>Progress</span><span>{completionPercent}%</span></div>
-                  <div style={{ height: 6, background: colors.cardMuted, borderRadius: 999, overflow: "hidden" }}><div style={{ width: `${completionPercent}%`, height: "100%", background: colors.accent }} /></div>
-                </div>
-              </div>
-              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <div style={{ fontSize: 13, color: colors.muted }}>{t.shareDescription}</div>
-                <button onClick={shareWhatsApp} style={primaryButton(colors)}>Share WhatsApp</button>
-              </div>
-            </section>
-
-            <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+        <main style={{ display: "grid", gap: 16 }}>
+          {activeTab === "tasks" && <div style={{ display: "grid", gap: 16 }}>
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1.6fr 1fr" }}>
               <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))", marginBottom: 14 }}>
-                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari tugas" style={{ ...fieldStyle(colors), gridColumn: "span 2" }} />
-                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>All</option>{categories.map((c) => <option key={c}>{c}</option>)}</select>
-                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>All</option>{statuses.map((s) => <option key={s}>{s}</option>)}</select>
-                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer", gridColumn: "1 / -1" }}><option>All</option>{priorities.map((p) => <option key={p}>{p}</option>)}</select>
+                <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>{t.progress}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10, marginBottom: 16 }}>
+                  {[{ l: t.completed, v: stats.completed, c: "#0c4a8c" }, { l: t.inProgress, v: stats.inProgress, c: "#1d4ed8" }, { l: t.pendingTasks, v: stats.pending, c: "#5b6b82" }, { l: t.cancelled, v: stats.cancelled, c: "#a12626" }].map(s => (
+                    <div key={s.l} style={{ background: colors.cardMuted, padding: 10, borderRadius: 8, textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: colors.muted }}>{s.l}</div>
+                      <div style={{ fontSize: 20, fontWeight: 600, color: s.c }}>{s.v}</div>
+                    </div>
+                  ))}
                 </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ flex: 1, height: 8, background: colors.cardMuted, borderRadius: 999, overflow: "hidden" }}>
+                    <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${colors.accent}, ${colors.accent}90)` }} />
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{t.completionRate}: {pct}%</div>
+                </div>
+              </div>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: colors.muted }}>{t.shareDescription}</span>
+                <button onClick={() => {
+                  const lines = ["📋 DAILY REPORT", `👤 ${currentUser.name}`, `📊 Done: ${stats.completed}/${stats.total} (${pct}%)`, "━━━━━━━━━", ...filtered.filter(tk => tk.status === "Completed").map(tk => `✅ ${tk.title}`), ...filtered.filter(tk => tk.status !== "Completed").map(tk => `⏳ ${tk.title}`)].join("\n");
+                  window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
+                }} style={primaryBtn(colors)}>Share WA</button>
+              </div>
+            </div>
 
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", marginBottom: 14 }}>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.searchPlaceholder} style={{ ...fieldStyle(colors), gridColumn: "span 2" }} />
+                  <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>{t.all}</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
+                  <select value={filterStat} onChange={e => setFilterStat(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>{t.all}</option>{statuses.map(s => <option key={s}>{s}</option>)}</select>
+                  <select value={filterPri} onChange={e => setFilterPri(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>{t.all}</option>{priorities.map(p => <option key={p}>{p}</option>)}</select>
+                </div>
                 <div style={{ display: "grid", gap: 10 }}>
-                  {filteredTasks.map((task) => {
-                    const badge = statusStyles[task.status];
+                  {filtered.map(tk => {
+                    const badge = statusStyles[tk.status];
                     return (
-                      <div key={task.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
+                      <div key={tk.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                          <div>
-                            <div style={{ fontSize: 15, fontWeight: 500 }}>{task.title}</div>
-                            <div style={{ color: colors.muted, marginTop: 4, fontSize: 13 }}>{task.category} · {task.priority} · {task.assignee}</div>
-                          </div>
-                          <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", height: "fit-content" }}>{task.status}</span>
+                          <div><div style={{ fontSize: 15, fontWeight: 500 }}>{tk.title}</div><div style={{ color: colors.muted, marginTop: 4, fontSize: 13 }}>{tk.category} · {tk.priority} · {tk.assignee}</div></div>
+                          <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500, height: "fit-content" }}>{tk.status}</span>
                         </div>
-                        <div style={{ marginTop: 10, color: colors.muted, fontSize: 13 }}>{task.description}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
-                          <div style={{ fontSize: 12, color: colors.muted }}>Deadline: {formatDate(task.deadline)}</div>
-                          <div style={{ fontSize: 12, color: colors.muted }}>Dibuat: {formatDate(task.createdAt)}</div>
-                          {(task.startTime || task.endTime) && <div style={{ fontSize: 12, color: colors.muted }}>Waktu: {formatTimeRange(task)}{getTaskDuration(task) ? ` (${getTaskDuration(task)})` : ""}</div>}
+                        {tk.imageUrl && <img src={tk.imageUrl} alt="Task" style={{ maxWidth: 120, marginTop: 10, borderRadius: 6, objectFit: "cover" }} />}
+                        <div style={{ marginTop: 10, color: colors.muted, fontSize: 13 }}>{tk.description}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10, fontSize: 12, color: colors.muted }}>
+                          <span>{t.deadline}: {formatDate(tk.deadline)}</span><span>{t.time}: {formatTimeRange(tk)}</span>
                         </div>
-                        {(task.status === "Pending" || task.status === "In progress") && task.reason && (
-                          <div style={{ marginTop: 10, padding: "8px 10px", color: colors.text, background: colors.card, borderRadius: 8, fontSize: 12, border: `0.5px solid ${colors.border}` }}>Alasan: {task.reason}</div>
-                        )}
                         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {(role === "Admin" || task.assignee === currentUser.name) && (
-                            <button onClick={() => handleStatusToggle(task)} style={primaryButton(colors)} disabled={role !== "Staff"}>{task.status === "Completed" ? "Undo" : "Checklist"}</button>
-                          )}
-                          {role === "Admin" && (
-                            <>
-                              <button onClick={() => handleEditTask(task)} style={secondaryButton(colors)}>Edit</button>
-                              <button onClick={() => handleDeleteTask(task.id)} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button>
-                            </>
-                          )}
+                          <button onClick={() => setTasks(p => p.map(i => i.id === tk.id ? { ...i, status: i.status === "Completed" ? "In progress" : "Completed" } : i))} style={primaryBtn(colors)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
+                          <button onClick={() => setTaskForm(tk)} style={secondaryBtn(colors)}>{t.edit}</button>
+                          <input id={`file-upload-${tk.id}`} type="file" accept="image/*" onChange={(e) => handleTaskPhotoUpload(e, tk.id)} style={{ display: "none" }} />
+                          <button onClick={() => (document.getElementById(`file-upload-${tk.id}`) as HTMLInputElement)?.click()} style={secondaryBtn(colors)}>{t.uploadPhoto}</button>
+                          <button onClick={() => setTasks(p => p.filter(i => i.id !== tk.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger }}>{t.delete}</button>
                         </div>
-                        <div style={{ marginTop: 12 }}>
-                          <textarea value={task.notes} onChange={(e) => setTasks((prev) => prev.map((item) => (item.id === task.id ? { ...item, notes: e.target.value } : item)))} placeholder="Catatan tambahan" style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical", background: colors.card }} />
-                        </div>
+                        <textarea value={tk.notes} onChange={e => setTasks(p => p.map(i => i.id === tk.id ? { ...i, notes: e.target.value } : i))} placeholder={t.addNote} style={{ ...fieldStyle(colors), minHeight: 50, resize: "vertical", marginTop: 10, background: colors.card }} />
                       </div>
                     );
                   })}
-                  {filteredTasks.length === 0 && <div style={{ fontSize: 13, color: colors.muted, padding: "12px 0" }}>Tidak ada task untuk filter ini.</div>}
+                  {filtered.length === 0 && <div style={{ padding: "20px 0", color: colors.muted }}>{t.noTasks}</div>}
                 </div>
               </div>
 
-              <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", flexDirection: "column", gap: 10, height: "fit-content" }}>
+              <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
                 <div style={{ fontSize: 15, fontWeight: 500 }}>{t.taskFormTitle}</div>
                 <div style={{ color: colors.muted, fontSize: 12, marginTop: -6 }}>{t.adminStaffNote}</div>
-                <input value={taskForm.title} onChange={(e) => handleFormChange("title", e.target.value)} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
-                <textarea value={taskForm.description} onChange={(e) => handleFormChange("description", e.target.value)} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
-                <select value={taskForm.category} onChange={(e) => handleFormChange("category", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-                <select value={taskForm.priority} onChange={(e) => handleFormChange("priority", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{priorities.map((p) => <option key={p} value={p}>{p}</option>)}</select>
-                <input value={taskForm.assignee} onChange={(e) => handleFormChange("assignee", e.target.value)} placeholder={t.assigneePlaceholder} style={fieldStyle(colors)} disabled={role === "Staff"} />
-                <input value={taskForm.deadline} onChange={(e) => handleFormChange("deadline", e.target.value)} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
-                <select value={taskForm.status} onChange={(e) => handleFormChange("status", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{statuses.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-                <textarea value={taskForm.notes} onChange={(e) => handleFormChange("notes", e.target.value)} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+                <input value={taskForm.title} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
+                <textarea value={taskForm.description} onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
+                <select value={taskForm.category} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{categories.map(c => <option key={c}>{c}</option>)}</select>
+                <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value as Priority }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{priorities.map(p => <option key={p}>{p}</option>)}</select>
+                <input value={taskForm.assignee} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} style={fieldStyle(colors)} disabled={currentUser.permissionRole === "Staff"} />
+                <input value={taskForm.deadline} onChange={e => setTaskForm(p => ({ ...p, deadline: e.target.value }))} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
+                <select value={taskForm.status} onChange={e => setTaskForm(p => ({ ...p, status: e.target.value as TaskStatus }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{statuses.map(s => <option key={s}>{s}</option>)}</select>
+                <textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <input type="time" value={taskForm.startTime || ""} onChange={(e) => handleFormChange("startTime", e.target.value)} style={fieldStyle(colors)} />
-                  <input type="time" value={taskForm.endTime || ""} onChange={(e) => handleFormChange("endTime", e.target.value)} style={fieldStyle(colors)} />
+                  <input type="time" value={taskForm.startTime || ""} onChange={e => setTaskForm(p => ({ ...p, startTime: e.target.value }))} style={fieldStyle(colors)} />
+                  <input type="time" value={taskForm.endTime || ""} onChange={e => setTaskForm(p => ({ ...p, endTime: e.target.value }))} style={fieldStyle(colors)} />
                 </div>
-                <textarea value={taskForm.reason} onChange={(e) => handleFormChange("reason", e.target.value)} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 52, resize: "vertical" }} />
-                <button type="button" onClick={handleSaveTask} disabled={taskLimitReached && !taskForm.id} style={{ ...primaryButton(colors), cursor: taskLimitReached && !taskForm.id ? "not-allowed" : "pointer", opacity: taskLimitReached && !taskForm.id ? 0.6 : 1 }}>
-                  {taskForm.id ? t.saveChanges : t.addTask}
-                </button>
-                <div style={{ color: colors.muted, fontSize: 11 }}>{roleTaskCount}/{taskLimit} {t.taskCreatedByRole} {role}. {taskLimitReached ? t.limitReached : t.canAddTask}</div>
+                <textarea value={taskForm.reason} onChange={e => setTaskForm(p => ({ ...p, reason: e.target.value }))} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 50, resize: "vertical" }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input id="upload-task-form" type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if(f){const r=new FileReader();r.onload=()=>setTaskForm(p=>({...p,imageUrl:r.result as string}));r.readAsDataURL(f)}}} style={{ display: "none" }} />
+                  <label style={{ ...secondaryBtn(colors), cursor: "pointer", flex: 1 }}><span onClick={() => (document.getElementById("upload-task-form") as HTMLInputElement)?.click()}>{t.uploadPhoto}</span></label>
+                  <label style={{ ...secondaryBtn(colors), cursor: "pointer", flex: 1 }}><input type="file" accept=".csv" onChange={handleCsvUpload} style={{ display: "none" }} />{t.importCsv}</label>
+                </div>
+                <button onClick={handleSaveTask} style={primaryBtn(colors)}>{taskForm.id ? t.saveChanges : t.addTask}</button>
               </aside>
-            </section>
-          </>
-        )}
+            </div>
+          </div>}
 
-        {activeTab === "stock" && (
-          <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+          {activeTab === "stock" && <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
             <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>Stok opname — stok per item</div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>{t.stockTitle}</div>
               <div style={{ display: "grid", gap: 10 }}>
-                {stockItems.map((sItem) => (
-                  <div key={sItem.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 500 }}>{sItem.item}</div>
-                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Update terakhir: {formatDate(sItem.updatedAt)}</div>
+                {stockItems.map(s => {
+                  const remain = s.stock - s.keluar + s.masuk;
+                  return (
+                    <div key={s.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div><div style={{ fontSize: 15, fontWeight: 500 }}>{s.item}</div><div style={{ fontSize: 12, color: colors.muted }}>{t.updateLast}: {formatDate(s.updatedAt)}</div></div>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{t.currentStock}: {remain} {s.unit}</div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <input type="number" value={sItem.stock} onChange={(e) => updateStock(sItem.id, Number(e.target.value))} style={{ ...fieldStyle(colors), width: 90, textAlign: "right" }} />
-                        <span style={{ fontSize: 13, color: colors.muted }}>{sItem.unit}</span>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+                        <input type="number" value={s.masuk} onChange={e => setStockItems(p => p.map(i => i.id === s.id ? { ...i, masuk: Number(e.target.value), updatedAt: new Date().toISOString().slice(0, 10) } : i))} placeholder={t.incoming} style={{ ...fieldStyle(colors), textAlign: "right" }} />
+                        <input type="number" value={s.keluar} onChange={e => setStockItems(p => p.map(i => i.id === s.id ? { ...i, keluar: Number(e.target.value), updatedAt: new Date().toISOString().slice(0, 10) } : i))} placeholder={t.outgoing} style={{ ...fieldStyle(colors), textAlign: "right" }} />
                       </div>
+                      {s.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>{s.notes}</div>}
+                      <button onClick={() => setStockItems(p => p.filter(i => i.id !== s.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger, marginTop: 10 }}>{t.deleteItem}</button>
                     </div>
-                    {sItem.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>{sItem.notes}</div>}
-                    {role === "Admin" && <div style={{ marginTop: 10 }}><button onClick={() => setStockItems((prev) => prev.filter((s) => s.id !== sItem.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus item</button></div>}
-                  </div>
-                ))}
-                {stockItems.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada item stok.</div>}
+                  );
+                })}
+                {stockItems.length === 0 && <div style={{ color: colors.muted }}>{t.noStock}</div>}
               </div>
             </div>
             <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>Tambah item baru</div>
-              <input value={stockForm.item} onChange={(e) => setStockForm((p) => ({ ...p, item: e.target.value }))} placeholder="Nama item" style={fieldStyle(colors)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <input value={stockForm.stock} onChange={(e) => setStockForm((p) => ({ ...p, stock: e.target.value }))} placeholder="Stok awal" type="number" style={fieldStyle(colors)} />
-                <input value={stockForm.unit} onChange={(e) => setStockForm((p) => ({ ...p, unit: e.target.value }))} placeholder="Satuan" style={fieldStyle(colors)} />
+              <div style={{ fontSize: 15, fontWeight: 500 }}>{t.addNewItem}</div>
+              <input value={stockForm.item} onChange={e => setStockForm(p => ({ ...p, item: e.target.value }))} placeholder={t.itemName} style={fieldStyle(colors)} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <input value={stockForm.stock} onChange={e => setStockForm(p => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" style={fieldStyle(colors)} />
+                <input value={stockForm.masuk} onChange={e => setStockForm(p => ({ ...p, masuk: e.target.value }))} placeholder={t.incoming} type="number" style={fieldStyle(colors)} />
+                <input value={stockForm.keluar} onChange={e => setStockForm(p => ({ ...p, keluar: e.target.value }))} placeholder={t.outgoing} type="number" style={fieldStyle(colors)} />
               </div>
-              <textarea value={stockForm.notes} onChange={(e) => setStockForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-              <button onClick={() => { if (!stockForm.item.trim()) { window.alert("Nama item wajib diisi."); return; } setStockItems((prev) => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, notes: stockForm.notes, updatedAt: new Date().toISOString().slice(0, 10) }, ...prev]); setStockForm({ item: "", unit: "", stock: "", notes: "" }); }} style={primaryButton(colors)}>Tambah item</button>
+              <input value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))} placeholder="Unit (pcs/kg)" style={fieldStyle(colors)} />
+              <textarea value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
+              <button onClick={() => {
+                if (!stockForm.item.trim()) { window.alert(t.alertTitleRequired); return; }
+                setStockItems(p => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, masuk: Number(stockForm.masuk) || 0, keluar: Number(stockForm.keluar) || 0, notes: stockForm.notes, updatedAt: new Date().toISOString().slice(0, 10) }, ...p]);
+                setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "" });
+              }} style={primaryBtn(colors)}>{t.addNewItem}</button>
             </aside>
-          </section>
-        )}
+          </div>}
 
-        {activeTab === "meeting" && (
-          <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+          {activeTab === "meeting" && <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
             <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>Meeting</div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>{t.meetingTitle}</div>
               <div style={{ display: "grid", gap: 10 }}>
-                {meetings.map((m) => (
+                {meetings.map(m => (
                   <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
                     <div style={{ fontSize: 15, fontWeight: 500 }}>{m.title}</div>
                     <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{formatDate(m.date)} · {m.time || "-"}</div>
-                    <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>Peserta: {m.attendees || "-"}</div>
+                    <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{t.attendees}: {m.attendees || "-"}</div>
                     {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
-                    <div style={{ marginTop: 10 }}><button onClick={() => setMeetings((prev) => prev.filter((x) => x.id !== m.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button></div>
+                    <button onClick={() => setMeetings(p => p.filter(x => x.id !== m.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger, marginTop: 10 }}>{t.delete}</button>
                   </div>
                 ))}
-                {meetings.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada jadwal meeting.</div>}
+                {meetings.length === 0 && <div style={{ color: colors.muted }}>{t.noMeeting}</div>}
               </div>
             </div>
             <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>Jadwalkan meeting</div>
-              <input value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} placeholder="Judul meeting" style={fieldStyle(colors)} />
+              <div style={{ fontSize: 15, fontWeight: 500 }}>{t.scheduleMeeting}</div>
+              <input value={meetingForm.title} onChange={e => setMeetingForm(p => ({ ...p, title: e.target.value }))} placeholder={t.meetingName} style={fieldStyle(colors)} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <input value={meetingForm.date} onChange={(e) => setMeetingForm((p) => ({ ...p, date: e.target.value }))} type="date" style={fieldStyle(colors)} />
-                <input value={meetingForm.time} onChange={(e) => setMeetingForm((p) => ({ ...p, time: e.target.value }))} type="time" style={fieldStyle(colors)} />
+                <input value={meetingForm.date} onChange={e => setMeetingForm(p => ({ ...p, date: e.target.value }))} type="date" style={fieldStyle(colors)} />
+                <input value={meetingForm.time} onChange={e => setMeetingForm(p => ({ ...p, time: e.target.value }))} type="time" style={fieldStyle(colors)} />
               </div>
-              <input value={meetingForm.attendees} onChange={(e) => setMeetingForm((p) => ({ ...p, attendees: e.target.value }))} placeholder="Peserta (pisahkan dengan koma)" style={fieldStyle(colors)} />
-              <textarea value={meetingForm.notes} onChange={(e) => setMeetingForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Agenda atau catatan" style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-              <button onClick={() => { if (!meetingForm.title.trim()) { window.alert("Judul meeting wajib diisi."); return; } setMeetings((prev) => [{ id: String(Date.now()), ...meetingForm }, ...prev]); setMeetingForm({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" }); }} style={primaryButton(colors)}>Tambah meeting</button>
+              <input value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} style={fieldStyle(colors)} />
+              <textarea value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
+              <button onClick={() => {
+                if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; }
+                setMeetings(p => [{ id: String(Date.now()), ...meetingForm }, ...p]);
+                setMeetingForm({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
+              }} style={primaryBtn(colors)}>{t.addMeeting}</button>
             </aside>
-          </section>
-        )}
+          </div>}
 
-        {activeTab === "maintenance" && (
-          <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+          {activeTab === "maintenance" && <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
             <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>Maintenance</div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>{t.maintTitle}</div>
               <div style={{ display: "grid", gap: 10 }}>
-                {maintenanceItems.map((m) => {
-                  const badge = statusStyles[m.status] || statusStyles.Pending;
+                {maintItems.map(m => {
+                  const badge = statusStyles[m.status];
                   return (
                     <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -603,26 +529,30 @@ export default function App() {
                         <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500 }}>{m.status}</span>
                       </div>
                       <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.issue}</div>
-                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>Teknisi: {m.technician || "-"} · {formatDate(m.date)}</div>
+                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{t.techName}: {m.technician || "-"} · {formatDate(m.date)}</div>
                       {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
-                      <div style={{ marginTop: 10 }}><button onClick={() => setMaintenanceItems((prev) => prev.filter((x) => x.id !== m.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button></div>
+                      <button onClick={() => setMaintItems(p => p.filter(x => x.id !== m.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger, marginTop: 10 }}>{t.delete}</button>
                     </div>
                   );
                 })}
-                {maintenanceItems.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada catatan maintenance.</div>}
+                {maintItems.length === 0 && <div style={{ color: colors.muted }}>{t.noMaint}</div>}
               </div>
             </div>
             <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>Tambah maintenance</div>
-              <input value={maintenanceForm.equipment} onChange={(e) => setMaintenanceForm((p) => ({ ...p, equipment: e.target.value }))} placeholder="Nama mesin atau alat" style={fieldStyle(colors)} />
-              <textarea value={maintenanceForm.issue} onChange={(e) => setMaintenanceForm((p) => ({ ...p, issue: e.target.value }))} placeholder="Deskripsi masalah" style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-              <input value={maintenanceForm.technician} onChange={(e) => setMaintenanceForm((p) => ({ ...p, technician: e.target.value }))} placeholder="Teknisi" style={fieldStyle(colors)} />
-              <select value={maintenanceForm.status} onChange={(e) => setMaintenanceForm((p) => ({ ...p, status: e.target.value as TaskStatus }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{statuses.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-              <textarea value={maintenanceForm.notes} onChange={(e) => setMaintenanceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 52, resize: "vertical" }} />
-              <button onClick={() => { if (!maintenanceForm.equipment.trim()) { window.alert("Nama mesin atau alat wajib diisi."); return; } setMaintenanceItems((prev) => [{ id: String(Date.now()), ...maintenanceForm, date: new Date().toISOString().slice(0, 10) }, ...prev]); setMaintenanceForm({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" }); }} style={primaryButton(colors)}>Tambah maintenance</button>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>{t.addMaint}</div>
+              <input value={maintForm.equipment} onChange={e => setMaintForm(p => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} style={fieldStyle(colors)} />
+              <textarea value={maintForm.issue} onChange={e => setMaintForm(p => ({ ...p, issue: e.target.value }))} placeholder={t.issueDesc} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
+              <input value={maintForm.technician} onChange={e => setMaintForm(p => ({ ...p, technician: e.target.value }))} placeholder={t.techName} style={fieldStyle(colors)} />
+              <select value={maintForm.status} onChange={e => setMaintForm(p => ({ ...p, status: e.target.value as TaskStatus }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{statuses.map(s => <option key={s}>{s}</option>)}</select>
+              <textarea value={maintForm.notes} onChange={e => setMaintForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} style={{ ...fieldStyle(colors), minHeight: 50, resize: "vertical" }} />
+              <button onClick={() => {
+                if (!maintForm.equipment.trim()) { window.alert(t.alertTitleRequired); return; }
+                setMaintItems(p => [{ id: String(Date.now()), ...maintForm, date: new Date().toISOString().slice(0, 10) }, ...p]);
+                setMaintForm({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" });
+              }} style={primaryBtn(colors)}>{t.addMaintBtn}</button>
             </aside>
-          </section>
-        )}
+          </div>}
+        </main>
       </div>
     </div>
   );
