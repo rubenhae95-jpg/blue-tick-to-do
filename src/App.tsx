@@ -1,5 +1,9 @@
 import { useState, useEffect, type ChangeEvent, type CSSProperties } from "react";
 
+// ==========================================
+// TYPE DEFINITIONS (STRICT TYPESCRIPT)
+// ==========================================
+
 type PermissionRole = "Admin" | "Staff";
 type TaskStatus = "Pending" | "In progress" | "Completed" | "Cancelled";
 type Priority = "High" | "Medium" | "Low";
@@ -7,7 +11,6 @@ type Theme = "light" | "dark";
 type Tab = "dashboard" | "tasks" | "stock" | "meeting" | "maintenance" | "schedule" | "activity_log";
 type Lang = "id" | "en";
 
-// ✅ Interface UserSession
 interface UserSession {
   id: string;
   username: string;
@@ -15,21 +18,22 @@ interface UserSession {
   isLoggedIn: boolean;
 }
 
-type CurrentUser = {
+interface CurrentUser {
   name: string;
   roleTitle: string;
   permissionRole: PermissionRole;
   shift: string;
-};
+}
 
-type Task = {
+interface Task {
   id: string;
   title: string;
   description: string;
   category: string;
   priority: Priority;
   assignee: string;
-  deadline: string;
+  deadline: string; // Retained for backward compatibility
+  date: string;     // ✅ NEW: Explicit date for daily filtering (YYYY-MM-DD)
   status: TaskStatus;
   notes: string;
   createdAt: string;
@@ -38,9 +42,9 @@ type Task = {
   endTime?: string;
   reason?: string;
   imageUrl?: string;
-};
+}
 
-type Colors = {
+interface Colors {
   page: string;
   card: string;
   cardMuted: string;
@@ -52,9 +56,9 @@ type Colors = {
   danger: string;
   success: string;
   warning: string;
-};
+}
 
-type StockItem = {
+interface StockItem {
   id: string;
   item: string;
   unit: string;
@@ -64,18 +68,18 @@ type StockItem = {
   notes: string;
   updatedAt: string;
   minStock: number;
-};
+}
 
-type Meeting = {
+interface Meeting {
   id: string;
   title: string;
   date: string;
   time: string;
   attendees: string;
   notes: string;
-};
+}
 
-type MaintenanceItem = {
+interface MaintenanceItem {
   id: string;
   equipment: string;
   issue: string;
@@ -83,27 +87,29 @@ type MaintenanceItem = {
   status: TaskStatus;
   date: string;
   notes: string;
-};
+}
 
-type ScheduleEntry = {
+interface ScheduleEntry {
   id: string;
   equipment: string;
   date: string;
   status: TaskStatus;
   responsible: string;
   notes: string;
-};
+}
 
-type LogEntry = {
+interface LogEntry {
   id: string;
   type: string;
   action: string;
   timestamp: string;
-};
+}
 
-// Default placeholder
+// ==========================================
+// CONSTANTS & DATA
+// ==========================================
+
 const DEFAULT_LOGO = "https://via.placeholder.com/48/0EA5E9/FFFFFF?text=BT";
-
 const categories: string[] = ["Production", "Cleaning", "Logistics", "Supervision", "Office", "Maintenance", "Other"];
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
@@ -115,6 +121,10 @@ const statusColors: Record<TaskStatus, { bg: string; text: string }> = {
   Completed: { bg: "#DCFCE7", text: "#166534" },
   Cancelled: { bg: "#FEE2E2", text: "#991B1B" },
 };
+
+// ==========================================
+// LOCALIZATION (ID/EN)
+// ==========================================
 
 const translations = {
   id: {
@@ -155,20 +165,33 @@ const translations = {
   },
 };
 
+// ==========================================
+// SAMPLE DATA & HELPERS
+// ==========================================
+
 const sampleTasks: Task[] = [
-  { id: "1", title: "Check LP & HP Pressure", description: "Verifikasi tekanan sistem.", category: "Maintenance", priority: "High", assignee: "Ilham", deadline: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:00", endTime: "07:08" },
-  { id: "2", title: "Record Production Data", description: "Input data ke sheet.", category: "Production", priority: "High", assignee: "Ilham", deadline: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:15", endTime: "07:22" },
-  { id: "3", title: "Clean Packing Table", description: "Membersihkan area packing.", category: "Cleaning", priority: "Medium", assignee: "Ilham", deadline: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:30", endTime: "07:45" },
-  { id: "4", title: "Machine Lubrication", description: "Oleskan pelumas pada bearing.", category: "Maintenance", priority: "High", assignee: "Ilham", deadline: "2026-07-18", status: "Pending", notes: "", createdAt: "2026-07-18", reason: "Waiting for lubricant." },
+  { id: "1", title: "Check LP & HP Pressure", description: "Verifikasi tekanan sistem.", category: "Maintenance", priority: "High", assignee: "Ilham", deadline: "2026-07-18", date: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:00", endTime: "07:08" },
+  { id: "2", title: "Record Production Data", description: "Input data ke sheet.", category: "Production", priority: "High", assignee: "Ilham", deadline: "2026-07-18", date: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:15", endTime: "07:22" },
 ];
 
 const sampleStock: StockItem[] = [
   { id: "1", item: "Es kristal", unit: "kg", stock: 150, masuk: 20, keluar: 50, notes: "Aman", updatedAt: "2026-07-18", minStock: 100 },
-  { id: "2", item: "Kantong", unit: "pcs", stock: 400, masuk: 0, keluar: 60, notes: "Low", updatedAt: "2026-07-18", minStock: 500 },
 ];
 
 const sampleMeetings: Meeting[] = [{ id: "1", title: "Briefing", date: "2026-07-19", time: "07:30", attendees: "Budi, Siti", notes: "Target harian" }];
 const sampleMaintenance: MaintenanceItem[] = [{ id: "1", equipment: "Ice Ball Machine", issue: "Noise", technician: "Dedi", status: "In progress", date: "2026-07-18", notes: "Wait part" }];
+
+// ✅ Helper to normalize dates (MM/DD/YYYY -> YYYY-MM-DD)
+const normalizeDate = (dateStr: string): string => {
+  if (!dateStr) return new Date().toISOString().slice(0, 10);
+  if (dateStr.includes("-")) return dateStr; // already ISO
+  const parts = dateStr.split("/");
+  if (parts.length === 3) {
+    // Assuming MM/DD/YYYY
+    return `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
+  }
+  return dateStr;
+};
 
 const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 const formatTimeRange = (t: Task) => t.startTime && t.endTime ? `${t.startTime} – ${t.endTime}` : "-";
@@ -178,16 +201,27 @@ const getColors = (theme: Theme): Colors => theme === "light"
   ? { page: "#F8FAFC", card: "#FFFFFF", cardMuted: "#F1F5F9", text: "#0F172A", muted: "#64748B", border: "#E2E8F0", accent: "#0EA5E9", accentBg: "#E0F2FE", danger: "#EF4444", success: "#10B981", warning: "#F59E0B" }
   : { page: "#0B1120", card: "#111827", cardMuted: "#1F2937", text: "#F3F4F6", muted: "#9CA3AF", border: "#374151", accent: "#38BDF8", accentBg: "#0C4A6E", danger: "#F87171", success: "#34D399", warning: "#FBBF24" };
 
-// ✅ MODIFIED: LoginScreen without Logo
+// ==========================================
+// COMPONENTS
+// ==========================================
+
 function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: CurrentUser) => void; t: typeof translations.id }) {
-  const [name, setName] = useState(""); const [roleTitle, setRoleTitle] = useState(""); const [role, setRole] = useState<PermissionRole>("Staff"); const [shift, setShift] = useState("Day"); const [err, setErr] = useState("");
-  const submit = () => { if (!name.trim()) { setErr(t.nameRequired); return; } setErr(""); onLogin({ name: name.trim(), roleTitle: roleTitle.trim() || "Staff", permissionRole: role, shift }); };
+  const [name, setName] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
+  const [role, setRole] = useState<PermissionRole>("Staff");
+  const [shift, setShift] = useState("Day");
+  const [err, setErr] = useState("");
+
+  const submit = () => {
+    if (!name.trim()) { setErr(t.nameRequired); return; }
+    setErr("");
+    onLogin({ name: name.trim(), roleTitle: roleTitle.trim() || "Staff", permissionRole: role, shift });
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 20, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 360, background: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, padding: 24, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          {/* ✅ LOGO DIHAPUS DARI HALAMAN LOGIN */}
-          {/* <img src={...} ... /> */}
           <h1 style={{ fontSize: 24, fontWeight: 700, color: colors.text, margin: 0 }}>{t.loginTitle}</h1>
           <p style={{ fontSize: 14, color: colors.muted, margin: "4px 0 0" }}>{t.loginSubtitle}</p>
         </div>
@@ -204,23 +238,37 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
   );
 }
 
+// ==========================================
+// MAIN APP COMPONENT
+// ==========================================
+
 export default function App() {
+  // State Management
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme>("light");
   const [lang, setLang] = useState<Lang>("id");
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [isMenuOpen, setMenuOpen] = useState(false);
-  
-  // ✅ STATE LOGO
   const [userLogo, setUserLogo] = useState<string | null>(null);
+  
+  // ✅ Date Filter State (Defaults to Today)
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   const colors = getColors(theme);
   const t = translations[lang];
 
   const [tasks, setTasks] = useState<Task[]>(sampleTasks);
   const [search, setSearch] = useState("");
-  const [filterCat, setFilterCat] = useState("All"); const [filterStat, setFilterStat] = useState("All"); const [filterPri, setFilterPri] = useState("All");
-  const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: "", description: "", category: "Production", priority: "High", assignee: "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
+  const [filterCat, setFilterCat] = useState("All");
+  const [filterStat, setFilterStat] = useState("All");
+  const [filterPri, setFilterPri] = useState("All");
+  
+  const [taskForm, setTaskForm] = useState<Partial<Task>>({ 
+    title: "", description: "", category: "Production", priority: "High", assignee: "", 
+    deadline: new Date().toISOString().slice(0, 10), 
+    date: new Date().toISOString().slice(0, 10), // ✅ Default date
+    status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" 
+  });
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Task>>({});
 
@@ -240,7 +288,7 @@ export default function App() {
     setActivityLogs(prev => [entry, ...prev].slice(0, 150));
   };
 
-  // ✅ Handle Upload Logo
+  // ✅ Logo Upload
   const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -259,7 +307,6 @@ export default function App() {
   // ✅ Auto-login & Data Load
   useEffect(() => {
     try {
-      // Load Logo First
       const savedLogo = localStorage.getItem('btice_app_logo');
       if (savedLogo) setUserLogo(savedLogo);
 
@@ -301,6 +348,7 @@ export default function App() {
     }
   }, [currentUser, theme, lang, tasks, stockItems, meetings, maintItems, scheduleItems, activityLogs]);
 
+  // ✅ Handlers
   const handleLogin = (user: CurrentUser) => {
     const session: UserSession = {
       id: String(Date.now()),
@@ -327,19 +375,29 @@ export default function App() {
     return <LoginScreen colors={colors} t={t} onLogin={handleLogin} />;
   }
 
+  // ✅ Filtering Logic (Includes Date Filter)
   const filtered = tasks.filter(tk => {
-    const s = !search || tk.title.toLowerCase().includes(search.toLowerCase()) || tk.assignee.toLowerCase().includes(search.toLowerCase());
-    const c = filterCat === "All" || tk.category === filterCat;
-    const st = filterStat === "All" || tk.status === filterStat;
-    const p = filterPri === "All" || tk.priority === filterPri;
+    const matchesSearch = !search || tk.title.toLowerCase().includes(search.toLowerCase()) || tk.assignee.toLowerCase().includes(search.toLowerCase());
+    const matchesCat = filterCat === "All" || tk.category === filterCat;
+    const matchesStat = filterStat === "All" || tk.status === filterStat;
+    const matchesPri = filterPri === "All" || tk.priority === filterPri;
+    // ✅ Date Filter: Only show tasks that match the selected date
+    const matchesDate = tk.date === selectedDate; 
     const matchesUser = currentUser.permissionRole === "Admin" || tk.assignee === currentUser.name || tk.assignee.trim() === "";
-    return s && c && st && p && matchesUser;
+    return matchesSearch && matchesCat && matchesStat && matchesPri && matchesDate && matchesUser;
   }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
 
-  const stats = { total: filtered.length, completed: filtered.filter(tk => tk.status === "Completed").length, inProgress: filtered.filter(tk => tk.status === "In progress").length, pending: filtered.filter(tk => tk.status === "Pending").length, cancelled: filtered.filter(tk => tk.status === "Cancelled").length };
+  const stats = { 
+    total: filtered.length, 
+    completed: filtered.filter(tk => tk.status === "Completed").length, 
+    inProgress: filtered.filter(tk => tk.status === "In progress").length, 
+    pending: filtered.filter(tk => tk.status === "Pending").length, 
+    cancelled: filtered.filter(tk => tk.status === "Cancelled").length 
+  };
   const pct = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
   const remaining = stats.pending + stats.inProgress;
 
+  // ✅ CSV Upload with Date Normalization
   const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
@@ -348,18 +406,38 @@ export default function App() {
         let text = (ev.target?.result as string).replace(/^\uFEFF/, '');
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
         if (lines.length < 2) { window.alert("CSV harus memiliki header dan minimal 1 baris data."); return; }
-        const parseLine = (line: string): string[] => { const r: string[] = []; let c = ''; let q = false; for (let i = 0; i < line.length; i++) { const ch = line[i]; if (ch === '"') q = !q; else if (ch === ',' && !q) { r.push(c.trim()); c = ''; } else c += ch; } r.push(c.trim()); return r; };
+        
+        const parseLine = (line: string): string[] => { 
+          const r: string[] = []; let c = ''; let q = false; 
+          for (let i = 0; i < line.length; i++) { 
+            const ch = line[i]; 
+            if (ch === '"') q = !q; 
+            else if (ch === ',' && !q) { r.push(c.trim()); c = ''; } 
+            else c += ch; 
+          } 
+          r.push(c.trim()); return r; 
+        };
+
         const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'));
         const newTasks: Task[] = [];
-        const parseDate = (d: string) => { if (!d) return new Date().toISOString().slice(0, 10); const p = d.split(/[\/\-\.]/); return p.length === 3 ? `${p[2]}-${p[0].padStart(2, '0')}-${p[1].padStart(2, '0')}` : d; };
+        
         for (let i = 1; i < lines.length; i++) {
           const cols = parseLine(lines[i]); if (cols.length < 2) continue;
           const get = (k: string) => { const idx = headers.indexOf(k.toLowerCase().replace(/\s+/g, '_')); return idx >= 0 ? (cols[idx] || '').trim() : ''; };
+          
+          // ✅ Normalize Date from Deadline column
+          const rawDate = get('deadline') || get('date') || new Date().toISOString().slice(0, 10);
+          const normalizedDate = normalizeDate(rawDate);
+
           newTasks.push({
-            id: String(Date.now() + Math.random()), title: (get('title') || `Task ${i}`).replace(/\.$/, '').trim(), description: get('description') || '',
+            id: String(Date.now() + Math.random()), 
+            title: (get('title') || `Task ${i}`).replace(/\.$/, '').trim(), 
+            description: get('description') || '',
             category: categories.find(c => c.toLowerCase() === get('category').toLowerCase()) || get('category') || 'Others',
             priority: (priorities.find(p => p.toLowerCase() === get('priority').toLowerCase()) || 'High') as Priority,
-            assignee: get('assignee') || currentUser.name, deadline: parseDate(get('deadline') || ''),
+            assignee: get('assignee') || currentUser.name, 
+            deadline: normalizedDate,
+            date: normalizedDate, // ✅ Set the date property explicitly
             status: (statuses.find(s => s.toLowerCase() === get('status').toLowerCase()) || 'Pending') as TaskStatus,
             notes: get('notes') || '', createdAt: new Date().toISOString().slice(0, 10), createdByRole: 'Staff',
             startTime: get('start_time') || '', endTime: get('end_time') || ''
@@ -367,6 +445,8 @@ export default function App() {
         }
         if (newTasks.length === 0) { window.alert("Tidak ada data valid ditemukan."); return; }
         setTasks(prev => [...newTasks, ...prev]); setSearch(''); setFilterCat('All'); setFilterStat('All'); setFilterPri('All');
+        // If importing CSV, we might want to show the first task's date
+        if(newTasks.length > 0) setSelectedDate(newTasks[0].date);
         addLog("TASK", `Imported ${newTasks.length} tasks via CSV`);
         window.alert(`✅ ${newTasks.length} ${t.csvSuccess}`);
       } catch { window.alert(t.csvError); }
@@ -383,7 +463,7 @@ export default function App() {
     if (!taskForm.title?.trim() || !taskForm.assignee?.trim()) return;
     setTasks(prev => [{ id: String(Date.now()), ...taskForm, createdAt: new Date().toISOString().slice(0, 10), createdByRole: currentUser.permissionRole } as Task, ...prev]);
     addLog("TASK", `Created task: ${taskForm.title}`);
-    setTaskForm({ title: "", description: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
+    setTaskForm({ title: "", description: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), date: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   };
 
   const handleInlineEdit = (taskId: string) => { const task = tasks.find(tk => tk.id === taskId); if (task) { setEditingTaskId(taskId); setEditForm(task); } };
@@ -400,18 +480,23 @@ export default function App() {
     addLog("TASK", `Changed status to ${newStatus}`);
   };
 
+  // ✅ Updated WhatsApp Share Logic with Date Header
   const shareWhatsApp = () => {
     const assigned = stats.total;
     const completedCount = stats.completed;
     const pendingCount = remaining;
     const rate = assigned ? Math.round((completedCount / assigned) * 100) : 0;
     const now = new Date();
-    const dateStr = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const dateStr = formatDate(selectedDate); // ✅ Use Selected Date
     const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    const completedLines = tasks.filter(tk => tk.status === "Completed").map(tk => `• ${tk.title}\n   🕒 ${formatTimeRange(tk)}`).join("\n") || "-";
-    const pendingLines = tasks.filter(tk => tk.status !== "Completed" && tk.status !== "Cancelled").map(tk => `• ${tk.title}${tk.reason ? `\nReason: ${tk.reason}` : ""}`).join("\n") || "-";
+    
+    // Only include tasks that match the selected date
+    const completedLines = filtered.filter(tk => tk.status === "Completed").map(tk => `• ${tk.title}\n   🕒 ${formatTimeRange(tk)}`).join("\n") || "-";
+    const pendingLines = filtered.filter(tk => tk.status !== "Completed" && tk.status !== "Cancelled").map(tk => `• ${tk.title}${tk.reason ? `\nReason: ${tk.reason}` : ""}`).join("\n") || "-";
+    
     const notes = "Overall performance is good.\nAll critical tasks were completed.\nPending maintenance will be completed on the next shift.";
-    const reportLink = `https://your-domain.com/report/${now.toISOString().split("T")[0]}/${encodeURIComponent(currentUser.name.toLowerCase().replace(/\s+/g, "-"))}`;
+    const reportLink = `https://your-domain.com/report/${selectedDate}/${encodeURIComponent(currentUser.name.toLowerCase().replace(/\s+/g, "-"))}`;
+    
     const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser.name.toUpperCase()}\n💼 Role : ${currentUser.roleTitle}\n🕒 Shift : ${currentUser.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n📊 TASK SUMMARY\n📌 Assigned : ${assigned}\n✅ Completed : ${completedCount}\n⏳ Pending : ${pendingCount}\n📈 Completion Rate : ${rate}%\n\n━━━━━━━━━━━━━━━━━━\n\n✅ COMPLETED TASKS\n${completedLines}\n\n━━━━━━━━━━━━━━━━━━\n\n⏳ PENDING TASKS\n${pendingLines}\n\n━━━━━━━━━━━━━━━━━━\n\n📝 NOTES\n${notes}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View the complete report and task details:\n${reportLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
@@ -426,7 +511,7 @@ export default function App() {
     { id: "activity_log" as Tab, label: t.activityLog },
   ];
 
-  // ✅ FIX TYPE ERROR: Menggunakan CSSProperties secara eksplisit agar TS tidak error
+  // ✅ Styling Definitions
   const inputStyle: CSSProperties = {
     width: "100%",
     padding: "10px 12px",
@@ -463,7 +548,7 @@ export default function App() {
         .nav-item:hover { background: rgba(255,255,255,0.05); color: #E2E8F0; }
         .nav-item.active { background: rgba(14,165,233,0.15); color: #0EA5E9; border-left-color: #0EA5E9; }
         .nav-footer { padding: 20px; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); }
-        .main-content { flex: 1; padding: 20px; overflow-y: auto; min-height: 100vh; }
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; min-height: 100vh; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .stat-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
         .stat-value { font-size: 24px; font-weight: 700; color: ${colors.text}; }
@@ -477,12 +562,30 @@ export default function App() {
         .progress-text { font-size: 12px; color: ${colors.muted}; margin-top: 8px; }
         .task-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; margin-bottom: 12px; transition: border-color 0.2s; }
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-        .task-title { font-size: 15px; font-weight: 600; color: ${colors.text}; }
-        .task-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-        .task-meta { font-size: 12px; color: ${colors.muted}; margin-bottom: 10px; }
+        .task-title { font-size: 15px; font-weight: 600; color: ${colors.text}; word-break: break-word; }
+        .task-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .task-meta { font-size: 12px; color: ${colors.muted}; margin-bottom: 10px; word-break: break-word; }
         .task-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
-        @media (min-width: 768px) { .page-title { font-size: 28px; } }
+        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        
+        /* ✅ MOBILE RESPONSIVE CSS */
+        @media (max-width: 768px) {
+          .main-content { padding: 12px; }
+          .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+          .task-card { padding: 12px; }
+          .task-header { flex-direction: column; gap: 6px; }
+          .task-actions { flex-direction: column; }
+          .task-actions button, .task-actions label { width: 100%; text-align: center; }
+          .form-grid { grid-template-columns: 1fr; }
+          .filter-bar { flex-direction: column; }
+          .filter-bar input, .filter-bar select { width: 100%; }
+          .page-title { font-size: 1.2rem !important; white-space: normal; text-align: center; }
+          h1 { font-size: 1.5rem !important; text-align: center; }
+          header { flex-direction: column; gap: 12px; padding: 16px; }
+          header > div:nth-child(1) { width: 100%; justify-content: space-between; }
+          header > div:nth-child(2) { position: static; transform: none; margin-top: 10px; align-items: center; }
+        }
         input[type="date"], input[type="time"], select { color-scheme: ${theme}; }
         input[type="number"] { -moz-appearance: textfield; }
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -512,47 +615,19 @@ export default function App() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100%" }}>
-        {/* ✅ HEADER FIXED: Left (Hamburger + Logo), Center (Title + Subtitle), Right (Share) */}
-        <header style={{ display: "flex", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${colors.border}`, position: "relative" }}>
-          {/* LEFT: Hamburger + Logo */}
+        <header style={{ display: "flex", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${colors.border}`, position: "relative", width: "100%", boxSizing: "border-box" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button className="hamburger-btn" onClick={() => setMenuOpen(true)}>☰</button>
             <div style={{ position: "relative", display: "inline-block" }}>
-              <img 
-                src={userLogo || DEFAULT_LOGO} 
-                alt="Logo" 
-                style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} 
-              />
-              {/* Input file tersembunyi untuk upload */}
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleLogoUpload} 
-                style={{ display: "none" }} 
-                id="logo-upload" 
-              />
-              <label 
-                htmlFor="logo-upload" 
-                style={{ 
-                  position: "absolute", bottom: -4, right: -4, 
-                  background: colors.accent, color: "#fff", 
-                  fontSize: 10, width: 14, height: 14, borderRadius: "50%", 
-                  display: "grid", placeItems: "center", cursor: "pointer",
-                  border: `2px solid ${colors.card}`
-                }}
-              >
-                +
-              </label>
+              <img src={userLogo || DEFAULT_LOGO} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />
+              <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} id="logo-upload" />
+              <label htmlFor="logo-upload" style={{ position: "absolute", bottom: -4, right: -4, background: colors.accent, color: "#fff", fontSize: 10, width: 14, height: 14, borderRadius: "50%", display: "grid", placeItems: "center", cursor: "pointer", border: `2px solid ${colors.card}` }}>+</label>
             </div>
           </div>
-
-          {/* CENTER: Title & Subtitle */}
-          <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-            <h1 style={{ fontSize: "2rem", color: "#ADD8E6", fontWeight: 700, margin: 0, lineHeight: 1, whiteSpace: "nowrap", letterSpacing: "0.5px" }}>BLUE TICK ICE</h1>
-            <span style={{ fontSize: "0.85rem", color: colors.muted, fontWeight: 500, marginTop: 2, textTransform: "uppercase", letterSpacing: "1px" }}>Daily Task Operational</span>
+          <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 10 }}>
+            <h1 className="page-title" style={{ fontSize: "1.8rem", color: "#ADD8E6", fontWeight: 700, margin: 0, lineHeight: 1, whiteSpace: "nowrap", letterSpacing: "0.5px" }}>BLUE TICK ICE</h1>
+            <span style={{ fontSize: "0.75rem", color: colors.muted, fontWeight: 500, marginTop: 2, textTransform: "uppercase", letterSpacing: "1px" }}>Daily Task Operational</span>
           </div>
-
-          {/* RIGHT: Share */}
           {activeTab !== "schedule" && activeTab !== "activity_log" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), marginLeft: "auto", whiteSpace: "nowrap" }}>Share</button>}
         </header>
 
@@ -587,11 +662,15 @@ export default function App() {
             <>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, marginBottom: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Today's Tasks</div>
-                <div style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <input style={{ ...inputStyle, flex: 1, minWidth: "120px" }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks..." />
-                  <select style={{ ...inputStyle, width: "auto" }} value={filterCat} onChange={e => setFilterCat(e.target.value)}><option value="All">All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
-                  <select style={{ ...inputStyle, width: "auto" }} value={filterStat} onChange={e => setFilterStat(e.target.value)}><option value="All">All Status</option>{statuses.map(s => <option key={s}>{s}</option>)}</select>
+                
+                {/* ✅ Filter Bar with Date Picker */}
+                <div className="filter-bar">
+                  <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1, minWidth: "120px" }} />
+                  <input style={{ ...inputStyle, flex: 1, minWidth: "120px" }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." />
+                  <select style={{ ...inputStyle, width: "auto", flex: 1, minWidth: "100px" }} value={filterStat} onChange={e => setFilterStat(e.target.value)}><option value="All">Status</option>{statuses.map(s => <option key={s}>{s}</option>)}</select>
+                  <select style={{ ...inputStyle, width: "auto", flex: 1, minWidth: "100px" }} value={filterCat} onChange={e => setFilterCat(e.target.value)}><option value="All">Category</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
                 </div>
+
                 {filtered.length === 0 ? <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noTasks}</div> : (
                   filtered.map(tk => {
                     const isEditing = editingTaskId === tk.id;
@@ -601,8 +680,7 @@ export default function App() {
                         {isEditing ? (
                           <div className="form-grid">
                             <input style={inputStyle} value={editForm.title || ""} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
-                            <input style={inputStyle} type="time" value={editForm.startTime || ""} onChange={e => setEditForm(p => ({ ...p, startTime: e.target.value }))} />
-                            <input style={inputStyle} type="time" value={editForm.endTime || ""} onChange={e => setEditForm(p => ({ ...p, endTime: e.target.value }))} />
+                            <input style={inputStyle} type="date" value={editForm.date || tk.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))} />
                             <select style={inputStyle} value={editForm.status || tk.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
                             <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}><button style={btnStyle("primary")} onClick={saveEdit}>{t.save}</button><button style={btnStyle("secondary")} onClick={() => setEditingTaskId(null)}>{t.cancel}</button></div>
                           </div>
@@ -633,9 +711,9 @@ export default function App() {
                 <div className="form-grid">
                   <input style={inputStyle} value={taskForm.title || ""} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
                   <input style={inputStyle} value={taskForm.assignee || ""} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} disabled={currentUser.permissionRole === "Staff"} />
+                  <input style={inputStyle} value={taskForm.date || ""} onChange={e => setTaskForm(p => ({ ...p, date: e.target.value, deadline: e.target.value }))} type="date" />
                   <select style={inputStyle} value={taskForm.category || "Production"} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
                   <select style={inputStyle} value={taskForm.priority || "High"} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value as Priority }))}>{priorities.map(p => <option key={p} value={p}>{p}</option>)}</select>
-                  <input style={inputStyle} type="date" value={taskForm.deadline || ""} onChange={e => setTaskForm(p => ({ ...p, deadline: e.target.value }))} />
                   <input style={inputStyle} type="time" value={taskForm.startTime || ""} onChange={e => setTaskForm(p => ({ ...p, startTime: e.target.value }))} />
                   <input style={inputStyle} type="time" value={taskForm.endTime || ""} onChange={e => setTaskForm(p => ({ ...p, endTime: e.target.value }))} />
                 </div>
