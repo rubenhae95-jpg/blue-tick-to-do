@@ -6,6 +6,13 @@ type Priority = "High" | "Medium" | "Low";
 type Theme = "light" | "dark";
 type Tab = "tasks" | "stock" | "meeting" | "maintenance";
 
+type CurrentUser = {
+  name: string;
+  roleTitle: string;
+  permissionRole: PermissionRole;
+  shift: string;
+};
+
 type Task = {
   id: string;
   title: string;
@@ -21,15 +28,6 @@ type Task = {
   startTime?: string;
   endTime?: string;
   reason?: string;
-};
-
-type Account = {
-  username: string;
-  password: string;
-  name: string;
-  roleTitle: string;
-  permissionRole: PermissionRole;
-  shift: string;
 };
 
 type Colors = {
@@ -49,9 +47,9 @@ type StockItem = {
   id: string;
   item: string;
   unit: string;
-  counted: number | string;
+  stock: number;
   notes: string;
-  date: string;
+  updatedAt: string;
 };
 
 type Meeting = {
@@ -85,6 +83,7 @@ const categories: string[] = [
 ];
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
+const shifts: string[] = ["Day", "Night"];
 
 const statusStyles: Record<TaskStatus, { bg: string; text: string }> = {
   Pending: { bg: "#eef2f8", text: "#5b6b82" },
@@ -93,28 +92,15 @@ const statusStyles: Record<TaskStatus, { bg: string; text: string }> = {
   Cancelled: { bg: "#fde8e8", text: "#a12626" },
 };
 
-// Demo-only accounts. Plain-text, client-side check for preview purposes —
-// not a real authentication system.
-const accounts: Account[] = [
-  { username: "ruben", password: "ruben123", name: "Ruben Hina", roleTitle: "Factory Supervisor", permissionRole: "Admin", shift: "Day" },
-  { username: "budi", password: "budi123", name: "Budi", roleTitle: "Production Staff", permissionRole: "Staff", shift: "Day" },
-  { username: "ani", password: "ani123", name: "Ani", roleTitle: "Maintenance Staff", permissionRole: "Staff", shift: "Day" },
-  { username: "siti", password: "siti123", name: "Siti", roleTitle: "Delivery Staff", permissionRole: "Staff", shift: "Night" },
-  { username: "dedi", password: "dedi123", name: "Dedi", roleTitle: "Maintenance Staff", permissionRole: "Staff", shift: "Night" },
-];
-
 const t = {
   darkMode: "Mode gelap",
   lightMode: "Mode terang",
-  dashboard: "Dashboard",
   totalTasks: "Total tugas",
   completed: "Selesai",
   remaining: "Belum selesai",
   pending: "Pending",
-  reportHeader: "Laporan dan share",
-  shareDescription: "Bagikan laporan harian user terpilih ke WhatsApp.",
-  taskManagement: "Task management",
-  addEditTask: "Tambah atau edit task",
+  shareDescription: "Bagikan laporan harian kamu ke WhatsApp.",
+  taskFormTitle: "Tambah atau edit task",
   adminStaffNote: "Admin dan staff dapat membuat task. Edit dan hapus hanya untuk admin.",
   titlePlaceholder: "Judul tugas",
   descriptionPlaceholder: "Deskripsi tugas",
@@ -123,7 +109,6 @@ const t = {
   reasonPlaceholder: "Alasan jika pending atau in progress",
   saveChanges: "Simpan perubahan",
   addTask: "Tambah task",
-  resetConfirm: "Ini akan mengosongkan tanggal dan jam pada semua task, tanpa menghapus task itu sendiri. Lanjutkan?",
   alertTitleRequired: "Judul tugas wajib diisi.",
   alertAssigneeRequired: "Penanggung jawab wajib diisi.",
   taskCreatedByRole: "tugas dibuat oleh",
@@ -145,8 +130,9 @@ const sampleTasks: Task[] = [
 ];
 
 const sampleStock: StockItem[] = [
-  { id: "1", item: "Es batu kristal", unit: "kg", counted: 120, notes: "Stok aman", date: "2026-07-18" },
-  { id: "2", item: "Kantong es", unit: "pcs", counted: 340, notes: "Perlu tambah minggu depan", date: "2026-07-18" },
+  { id: "1", item: "Es batu kristal", unit: "kg", stock: 120, notes: "Stok aman", updatedAt: "2026-07-18" },
+  { id: "2", item: "Kantong es", unit: "pcs", stock: 340, notes: "Perlu tambah minggu depan", updatedAt: "2026-07-18" },
+  { id: "3", item: "Sirup cocktail", unit: "botol", stock: 18, notes: "", updatedAt: "2026-07-17" },
 ];
 
 const sampleMeetings: Meeting[] = [
@@ -185,7 +171,6 @@ const getTaskDuration = (task: Task): string => {
   return `${hours ? `${hours}j` : ""}${hours && minutes ? " " : ""}${minutes ? `${minutes}m` : ""}`.trim();
 };
 
-// Light-blue theme tokens.
 const getColors = (theme: Theme): Colors =>
   theme === "light"
     ? {
@@ -217,58 +202,57 @@ const fieldStyle = (colors: Colors): React.CSSProperties => ({
   width: "100%",
   borderRadius: 8,
   border: `0.5px solid ${colors.border}`,
-  padding: "9px 12px",
+  padding: "8px 11px",
   background: colors.cardMuted,
   color: colors.text,
-  fontSize: 14,
+  fontSize: 13.5,
   fontFamily: "inherit",
 });
 
 const secondaryButton = (colors: Colors): React.CSSProperties => ({
   borderRadius: 8,
   border: `0.5px solid ${colors.borderStrong}`,
-  padding: "9px 14px",
+  padding: "8px 13px",
   background: "transparent",
   color: colors.text,
   cursor: "pointer",
-  fontSize: 14,
+  fontSize: 13.5,
 });
 
 const primaryButton = (colors: Colors): React.CSSProperties => ({
   borderRadius: 8,
   border: "none",
-  padding: "10px 16px",
+  padding: "9px 15px",
   background: colors.accent,
   color: "#FFFFFF",
   cursor: "pointer",
-  fontSize: 14,
+  fontSize: 13.5,
 });
 
 const tabButton = (colors: Colors, active: boolean): React.CSSProperties => ({
   borderRadius: 8,
   border: active ? "none" : `0.5px solid ${colors.borderStrong}`,
-  padding: "8px 14px",
+  padding: "7px 13px",
   background: active ? colors.accent : "transparent",
   color: active ? "#FFFFFF" : colors.text,
   cursor: "pointer",
-  fontSize: 14,
+  fontSize: 13.5,
 });
 
-function LoginScreen({ colors, onLogin }: { colors: Colors; onLogin: (account: Account) => void }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+function LoginScreen({ colors, onLogin }: { colors: Colors; onLogin: (user: CurrentUser) => void }) {
+  const [name, setName] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
+  const [permissionRole, setPermissionRole] = useState<PermissionRole>("Staff");
+  const [shift, setShift] = useState("Day");
   const [error, setError] = useState("");
 
   const submit = () => {
-    const match = accounts.find(
-      (acc) => acc.username.toLowerCase() === username.trim().toLowerCase() && acc.password === password
-    );
-    if (!match) {
-      setError("Username atau password salah.");
+    if (!name.trim()) {
+      setError("Nama wajib diisi.");
       return;
     }
     setError("");
-    onLogin(match);
+    onLogin({ name: name.trim(), roleTitle: roleTitle.trim() || "Staff", permissionRole, shift });
   };
 
   return (
@@ -277,22 +261,23 @@ function LoginScreen({ colors, onLogin }: { colors: Colors; onLogin: (account: A
         <div style={{ fontSize: 26, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, marginBottom: 4 }}>
           BLUE TICK ICE
         </div>
-        <div style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>Masuk untuk melihat task kamu</div>
+        <div style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>Masuk dengan nama kamu untuk mulai</div>
         <div style={{ display: "grid", gap: 10 }}>
-          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" style={fieldStyle(colors)} />
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            type="password"
-            style={fieldStyle(colors)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-          />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama" style={fieldStyle(colors)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+          <input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} placeholder="Jabatan (contoh: Factory Supervisor)" style={fieldStyle(colors)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <select value={permissionRole} onChange={(e) => setPermissionRole(e.target.value as PermissionRole)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+              <option value="Staff">Staff</option>
+              <option value="Admin">Admin</option>
+            </select>
+            <select value={shift} onChange={(e) => setShift(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+              {shifts.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
           {error && <div style={{ fontSize: 12, color: colors.danger }}>{error}</div>}
           <button onClick={submit} style={primaryButton(colors)}>Masuk</button>
-          <div style={{ fontSize: 11, color: colors.muted, marginTop: 8, lineHeight: 1.6 }}>
-            Demo: ruben/ruben123 (admin), budi/budi123, ani/ani123, siti/siti123, dedi/dedi123.
-            Login ini hanya untuk pratinjau, bukan sistem autentikasi sungguhan.
+          <div style={{ fontSize: 11, color: colors.muted, marginTop: 4, lineHeight: 1.6 }}>
+            Ini identitas untuk pratinjau saja — tidak ada verifikasi password.
           </div>
         </div>
       </div>
@@ -301,7 +286,7 @@ function LoginScreen({ colors, onLogin }: { colors: Colors; onLogin: (account: A
 }
 
 function App() {
-  const [currentUser, setCurrentUser] = useState<Account | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme>("light");
   const colors = getColors(theme);
   const [activeTab, setActiveTab] = useState<Tab>("tasks");
@@ -312,7 +297,6 @@ function App() {
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterPriority, setFilterPriority] = useState("All");
-  const [adminViewUser, setAdminViewUser] = useState("Semua");
 
   const [taskForm, setTaskForm] = useState<Partial<Task>>({
     title: "",
@@ -329,7 +313,7 @@ function App() {
   });
 
   const [stockItems, setStockItems] = useState<StockItem[]>(sampleStock);
-  const [stockForm, setStockForm] = useState({ item: "", unit: "", counted: "", notes: "" });
+  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", notes: "" });
 
   const [meetings, setMeetings] = useState<Meeting[]>(sampleMeetings);
   const [meetingForm, setMeetingForm] = useState({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
@@ -337,25 +321,19 @@ function App() {
   const [maintenanceItems, setMaintenanceItems] = useState<MaintenanceItem[]>(sampleMaintenance);
   const [maintenanceForm, setMaintenanceForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending" as TaskStatus, notes: "" });
 
-  const userOptions: string[] = ["Semua", ...Array.from(new Set(tasks.map((task) => task.assignee).filter(Boolean)))];
-
   if (!currentUser) {
     return (
       <LoginScreen
         colors={colors}
-        onLogin={(account) => {
-          setCurrentUser(account);
-          setTaskForm((prev) => ({ ...prev, assignee: account.permissionRole === "Staff" ? account.name : prev.assignee }));
+        onLogin={(user) => {
+          setCurrentUser(user);
+          setTaskForm((prev) => ({ ...prev, assignee: user.permissionRole === "Staff" ? user.name : prev.assignee }));
         }}
       />
     );
   }
 
-  const role: PermissionRole = currentUser.permissionRole;
-  // Staff always sees only their own tasks; Admin can browse everyone or one person.
-  const selectedUser = role === "Staff" ? currentUser.name : adminViewUser;
-
-  const today = new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+  const role = currentUser.permissionRole;
 
   const filteredTasks = tasks
     .filter((task) => {
@@ -367,7 +345,7 @@ function App() {
       const matchesCategory = filterCategory === "All" || task.category === filterCategory;
       const matchesStatus = filterStatus === "All" || task.status === filterStatus;
       const matchesPriority = filterPriority === "All" || task.priority === filterPriority;
-      const matchesUser = selectedUser === "Semua" || task.assignee === selectedUser;
+      const matchesUser = role === "Admin" || task.assignee === currentUser.name;
       return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesUser;
     })
     .sort((a, b) => {
@@ -446,12 +424,6 @@ function App() {
   const handleEditTask = (task: Task) => setTaskForm(task);
   const handleDeleteTask = (id: string) => setTasks((prev) => prev.filter((task) => task.id !== id));
 
-  const handleResetDatesTimes = () => {
-    if (window.confirm(t.resetConfirm)) {
-      setTasks((prev) => prev.map((task) => ({ ...task, deadline: "", startTime: "", endTime: "" })));
-    }
-  };
-
   const handleStatusToggle = (task: Task) => {
     if (role === "Staff" && task.assignee === currentUser.name) {
       setTasks((prev) =>
@@ -472,13 +444,16 @@ function App() {
     reader.readAsDataURL(file);
   };
 
+  const handleResetLogo = () => setLogoUrl(null);
+
+  const updateStock = (id: string, nextStock: number) => {
+    setStockItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, stock: nextStock, updatedAt: new Date().toISOString().slice(0, 10) } : item))
+    );
+  };
+
   const shareWhatsApp = () => {
-    const reportUser = role === "Staff" ? currentUser.name : adminViewUser;
-    if (reportUser === "Semua") {
-      window.alert("Pilih satu user terlebih dahulu untuk membuat laporan.");
-      return;
-    }
-    const userTasks = tasks.filter((task) => task.assignee === reportUser);
+    const userTasks = tasks.filter((task) => task.assignee === currentUser.name);
     const completedTasks = userTasks.filter((task) => task.status === "Completed");
     const pendingTasks = userTasks.filter((task) => task.status === "Pending" || task.status === "In progress");
     const assigned = userTasks.length;
@@ -488,27 +463,25 @@ function App() {
 
     const now = new Date();
     const divider = "━━━━━━━━━━━━━━━━━━";
-    const reportRoleTitle = role === "Staff" ? currentUser.roleTitle : (accounts.find((a) => a.name === reportUser)?.roleTitle || "Staff");
-    const reportShift = role === "Staff" ? currentUser.shift : (accounts.find((a) => a.name === reportUser)?.shift || "Day");
 
     const completedLines = completedTasks.flatMap((task, index) => {
       const time = task.endTime || task.startTime || "-";
-      const taskLines = [`${index + 1}. ${task.title} 🕒 ✓ ${time}`];
-      if (task.notes) taskLines.push(`   📝 ${task.notes}`);
-      return taskLines;
+      const lines = [`${index + 1}. ${task.title} 🕒 ✓ ${time}`];
+      if (task.notes) lines.push(`   📝 ${task.notes}`);
+      return lines;
     });
 
     const pendingLines = pendingTasks.flatMap((task) => {
-      const taskLines = [`• ${task.title}`];
-      if (task.reason) taskLines.push(`  Reason: ${task.reason}`);
-      return taskLines;
+      const lines = [`• ${task.title}`];
+      if (task.reason) lines.push(`  Reason: ${task.reason}`);
+      return lines;
     });
 
     const lines = [
       "📋 DAILY TASK REPORT",
-      `👤 Employee : ${reportUser.toUpperCase()}`,
-      `💼 Role : ${reportRoleTitle}`,
-      `🕒 Shift : ${reportShift}`,
+      `👤 Employee : ${currentUser.name.toUpperCase()}`,
+      `💼 Role : ${currentUser.roleTitle}`,
+      `🕒 Shift : ${currentUser.shift}`,
       `📅 Date : ${formatDateShort(now)}`,
       divider,
       "📊 TASK SUMMARY",
@@ -523,45 +496,41 @@ function App() {
       "⏳ PENDING TASKS",
       ...(pendingLines.length ? pendingLines : ["-"]),
       divider,
-      `📤 Submitted by: ${reportUser.toUpperCase()}`,
+      `📤 Submitted by: ${currentUser.name.toUpperCase()}`,
       `🕒 Submitted: ${formatDateShort(now)} | ${now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`,
     ].join("\n");
 
     window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
   };
 
-  const filterRowStyle: React.CSSProperties = { marginBottom: 16, display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" };
-
   return (
-    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: 24, transition: "background 0.2s, color 0.2s" }}>
+    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: 20, transition: "background 0.2s, color 0.2s" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');`}</style>
 
-      <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gap: 20 }}>
-        <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gap: 16 }}>
+        {/* Header: logo, title, tabs, and user controls all in one compact block */}
+        <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, background: colors.card, borderRadius: 12, border: `0.5px solid ${colors.border}`, padding: "12px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ position: "relative" }}>
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: colors.accentBg, color: colors.accent, display: "grid", placeItems: "center", fontSize: 18, fontWeight: 500, overflow: "hidden" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 9, background: colors.accentBg, color: colors.accent, display: "grid", placeItems: "center", fontSize: 16, fontWeight: 500, overflow: "hidden" }}>
                 {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "✓"}
               </div>
-              <label
-                title="Ganti logo"
-                style={{ position: "absolute", bottom: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: colors.accent, color: "#fff", display: "grid", placeItems: "center", fontSize: 11, cursor: "pointer", border: `2px solid ${colors.page}` }}
-              >
+              <label title="Ganti logo" style={{ position: "absolute", bottom: -3, right: -3, width: 16, height: 16, borderRadius: "50%", background: colors.accent, color: "#fff", display: "grid", placeItems: "center", fontSize: 10, cursor: "pointer", border: `2px solid ${colors.card}` }}>
                 +
                 <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
               </label>
             </div>
-            <div>
-              <div style={{ fontSize: 13, color: colors.muted }}>Daily operation task</div>
-              <div style={{ fontSize: 30, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, lineHeight: 1 }}>
-                BLUE TICK ICE
-              </div>
+            <div style={{ fontSize: 22, fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, letterSpacing: "0.04em", color: colors.accent, lineHeight: 1 }}>
+              BLUE TICK ICE
             </div>
+            {logoUrl && (
+              <button onClick={handleResetLogo} style={{ ...secondaryButton(colors), padding: "5px 10px", fontSize: 12 }}>
+                Reset logo
+              </button>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 13, color: colors.muted, marginRight: 4 }}>
-              {currentUser.name} · {currentUser.roleTitle}
-            </div>
+            <div style={{ fontSize: 13, color: colors.muted }}>{currentUser.name} · {currentUser.roleTitle}</div>
             <button onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))} style={secondaryButton(colors)}>
               {theme === "light" ? t.darkMode : t.lightMode}
             </button>
@@ -582,70 +551,46 @@ function App() {
           ))}
         </div>
 
-        {role === "Admin" && (
-          <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-            <div style={{ fontSize: 13, color: colors.muted, minWidth: 90 }}>Lihat sebagai</div>
-            <select value={adminViewUser} onChange={(e) => setAdminViewUser(e.target.value)} style={{ ...fieldStyle(colors), width: 180, cursor: "pointer" }}>
-              {userOptions.map((name) => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-            <button onClick={handleResetDatesTimes} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger, marginLeft: "auto" }}>
-              Reset tanggal &amp; jam semua task
-            </button>
-          </div>
-        )}
-
         {activeTab === "tasks" && (
           <>
-            <section style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
-                <div style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>{t.dashboard} · {today}</div>
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.totalTasks}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{totalCount}</span>
+            <section style={{ display: "grid", gap: 12, gridTemplateColumns: "1.6fr 1fr" }}>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", alignItems: "center", gap: 24 }}>
+                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: colors.muted }}>{t.totalTasks}</div>
+                    <div style={{ fontSize: 18, fontWeight: 500 }}>{totalCount}</div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.completed}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{completedCount}</span>
+                  <div>
+                    <div style={{ fontSize: 12, color: colors.muted }}>{t.completed}</div>
+                    <div style={{ fontSize: 18, fontWeight: 500 }}>{completedCount}</div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.remaining}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{remainingCount}</span>
+                  <div>
+                    <div style={{ fontSize: 12, color: colors.muted }}>{t.remaining}</div>
+                    <div style={{ fontSize: 18, fontWeight: 500 }}>{remainingCount}</div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 14, color: colors.muted }}>{t.pending}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{pendingCount}</span>
+                  <div>
+                    <div style={{ fontSize: 12, color: colors.muted }}>{t.pending}</div>
+                    <div style={{ fontSize: 18, fontWeight: 500 }}>{pendingCount}</div>
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: colors.muted, marginBottom: 4 }}>
+                    <span>Progress</span><span>{completionPercent}%</span>
+                  </div>
+                  <div style={{ height: 6, background: colors.cardMuted, borderRadius: 999, overflow: "hidden" }}>
+                    <div style={{ width: `${completionPercent}%`, height: "100%", background: colors.accent }} />
                   </div>
                 </div>
               </div>
-              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
-                <div style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>Progress</div>
-                <div style={{ fontSize: 28, fontWeight: 500 }}>{completionPercent}%</div>
-                <div style={{ height: 6, background: colors.cardMuted, borderRadius: 999, marginTop: 12, overflow: "hidden" }}>
-                  <div style={{ width: `${completionPercent}%`, height: "100%", background: colors.accent }} />
-                </div>
-              </div>
-              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 13, color: colors.muted, marginBottom: 6 }}>{t.reportHeader}</div>
-                  <div style={{ fontSize: 14, color: colors.muted }}>{t.shareDescription}</div>
-                </div>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ fontSize: 13, color: colors.muted }}>{t.shareDescription}</div>
                 <button onClick={shareWhatsApp} style={primaryButton(colors)}>Share WhatsApp</button>
               </div>
             </section>
 
-            <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
-              <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 500 }}>{t.taskManagement}</div>
-                    <div style={{ color: colors.muted, marginTop: 2, fontSize: 13 }}>{selectedUser}</div>
-                  </div>
-                </div>
-
-                <div style={filterRowStyle}>
+            <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))", marginBottom: 14 }}>
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari tugas" style={{ ...fieldStyle(colors), gridColumn: "span 2" }} />
                   <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                     <option>All</option>
@@ -713,7 +658,7 @@ function App() {
                             value={task.notes}
                             onChange={(e) => setTasks((prev) => prev.map((item) => (item.id === task.id ? { ...item, notes: e.target.value } : item)))}
                             placeholder="Catatan tambahan"
-                            style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical", background: colors.card }}
+                            style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical", background: colors.card }}
                           />
                         </div>
                       </div>
@@ -723,48 +668,38 @@ function App() {
                 </div>
               </div>
 
-              <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "flex", flexDirection: "column", gap: 14, height: "fit-content" }}>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>{t.addEditTask}</div>
-                  <div style={{ color: colors.muted, fontSize: 13 }}>{t.adminStaffNote}</div>
+              <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", flexDirection: "column", gap: 10, height: "fit-content" }}>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>{t.taskFormTitle}</div>
+                <div style={{ color: colors.muted, fontSize: 12, marginTop: -6 }}>{t.adminStaffNote}</div>
+                <input value={taskForm.title} onChange={(e) => handleFormChange("title", e.target.value)} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
+                <textarea value={taskForm.description} onChange={(e) => handleFormChange("description", e.target.value)} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+                <select value={taskForm.category} onChange={(e) => handleFormChange("category", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={taskForm.priority} onChange={(e) => handleFormChange("priority", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  {priorities.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <input value={taskForm.assignee} onChange={(e) => handleFormChange("assignee", e.target.value)} placeholder={t.assigneePlaceholder} style={fieldStyle(colors)} disabled={role === "Staff"} />
+                <input value={taskForm.deadline} onChange={(e) => handleFormChange("deadline", e.target.value)} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
+                <select value={taskForm.status} onChange={(e) => handleFormChange("status", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
+                  {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <textarea value={taskForm.notes} onChange={(e) => handleFormChange("notes", e.target.value)} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <input type="time" value={taskForm.startTime || ""} onChange={(e) => handleFormChange("startTime", e.target.value)} style={fieldStyle(colors)} />
+                  <input type="time" value={taskForm.endTime || ""} onChange={(e) => handleFormChange("endTime", e.target.value)} style={fieldStyle(colors)} />
                 </div>
-                <div style={{ display: "grid", gap: 10 }}>
-                  <input value={taskForm.title} onChange={(e) => handleFormChange("title", e.target.value)} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
-                  <textarea value={taskForm.description} onChange={(e) => handleFormChange("description", e.target.value)} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
-                  <select value={taskForm.category} onChange={(e) => handleFormChange("category", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
-                    {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <select value={taskForm.priority} onChange={(e) => handleFormChange("priority", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
-                    {priorities.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                  <input
-                    value={taskForm.assignee}
-                    onChange={(e) => handleFormChange("assignee", e.target.value)}
-                    placeholder={t.assigneePlaceholder}
-                    style={fieldStyle(colors)}
-                    disabled={role === "Staff"}
-                  />
-                  <input value={taskForm.deadline} onChange={(e) => handleFormChange("deadline", e.target.value)} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
-                  <select value={taskForm.status} onChange={(e) => handleFormChange("status", e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
-                    {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <textarea value={taskForm.notes} onChange={(e) => handleFormChange("notes", e.target.value)} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 72, resize: "vertical" }} />
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <input type="time" value={taskForm.startTime || ""} onChange={(e) => handleFormChange("startTime", e.target.value)} style={fieldStyle(colors)} />
-                    <input type="time" value={taskForm.endTime || ""} onChange={(e) => handleFormChange("endTime", e.target.value)} style={fieldStyle(colors)} />
-                  </div>
-                  <textarea value={taskForm.reason} onChange={(e) => handleFormChange("reason", e.target.value)} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
-                  <button
-                    type="button"
-                    onClick={handleSaveTask}
-                    disabled={taskLimitReached && !taskForm.id}
-                    style={{ ...primaryButton(colors), cursor: taskLimitReached && !taskForm.id ? "not-allowed" : "pointer", opacity: taskLimitReached && !taskForm.id ? 0.6 : 1 }}
-                  >
-                    {taskForm.id ? t.saveChanges : t.addTask}
-                  </button>
-                  <div style={{ color: colors.muted, fontSize: 12 }}>
-                    {roleTaskCount}/{taskLimit} {t.taskCreatedByRole} {role}. {taskLimitReached ? t.limitReached : t.canAddTask}
-                  </div>
+                <textarea value={taskForm.reason} onChange={(e) => handleFormChange("reason", e.target.value)} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 52, resize: "vertical" }} />
+                <button
+                  type="button"
+                  onClick={handleSaveTask}
+                  disabled={taskLimitReached && !taskForm.id}
+                  style={{ ...primaryButton(colors), cursor: taskLimitReached && !taskForm.id ? "not-allowed" : "pointer", opacity: taskLimitReached && !taskForm.id ? 0.6 : 1 }}
+                >
+                  {taskForm.id ? t.saveChanges : t.addTask}
+                </button>
+                <div style={{ color: colors.muted, fontSize: 11 }}>
+                  {roleTaskCount}/{taskLimit} {t.taskCreatedByRole} {role}. {taskLimitReached ? t.limitReached : t.canAddTask}
                 </div>
               </aside>
             </section>
@@ -772,57 +707,70 @@ function App() {
         )}
 
         {activeTab === "stock" && (
-          <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
-            <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>Stok opname</div>
+          <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
+              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>Stok opname — stok per item</div>
               <div style={{ display: "grid", gap: 10 }}>
-                {stockItems.map((item) => (
-                  <div key={item.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <div style={{ fontSize: 15, fontWeight: 500 }}>{item.item}</div>
-                      <div style={{ fontSize: 14, fontWeight: 500 }}>{item.counted} {item.unit}</div>
+                {stockItems.map((sItem) => (
+                  <div key={sItem.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 500 }}>{sItem.item}</div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Update terakhir: {formatDate(sItem.updatedAt)}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <input
+                          type="number"
+                          value={sItem.stock}
+                          onChange={(e) => updateStock(sItem.id, Number(e.target.value))}
+                          style={{ ...fieldStyle(colors), width: 90, textAlign: "right" }}
+                        />
+                        <span style={{ fontSize: 13, color: colors.muted }}>{sItem.unit}</span>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>Tanggal opname: {formatDate(item.date)}</div>
-                    {item.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{item.notes}</div>}
+                    {sItem.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>{sItem.notes}</div>}
                     {role === "Admin" && (
                       <div style={{ marginTop: 10 }}>
-                        <button onClick={() => setStockItems((prev) => prev.filter((s) => s.id !== item.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus</button>
+                        <button onClick={() => setStockItems((prev) => prev.filter((s) => s.id !== sItem.id))} style={{ ...secondaryButton(colors), color: colors.danger, borderColor: colors.danger }}>Hapus item</button>
                       </div>
                     )}
                   </div>
                 ))}
-                {stockItems.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada data stok opname.</div>}
+                {stockItems.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada item stok.</div>}
               </div>
             </div>
-            <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
-              <div style={{ fontSize: 16, fontWeight: 500 }}>Tambah data stok</div>
+            <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>Tambah item baru</div>
               <input value={stockForm.item} onChange={(e) => setStockForm((p) => ({ ...p, item: e.target.value }))} placeholder="Nama item" style={fieldStyle(colors)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <input value={stockForm.counted} onChange={(e) => setStockForm((p) => ({ ...p, counted: e.target.value }))} placeholder="Jumlah" type="number" style={fieldStyle(colors)} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <input value={stockForm.stock} onChange={(e) => setStockForm((p) => ({ ...p, stock: e.target.value }))} placeholder="Stok awal" type="number" style={fieldStyle(colors)} />
                 <input value={stockForm.unit} onChange={(e) => setStockForm((p) => ({ ...p, unit: e.target.value }))} placeholder="Satuan" style={fieldStyle(colors)} />
               </div>
-              <textarea value={stockForm.notes} onChange={(e) => setStockForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <textarea value={stockForm.notes} onChange={(e) => setStockForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
               <button
                 onClick={() => {
                   if (!stockForm.item.trim()) {
                     window.alert("Nama item wajib diisi.");
                     return;
                   }
-                  setStockItems((prev) => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, counted: stockForm.counted || 0, notes: stockForm.notes, date: new Date().toISOString().slice(0, 10) }, ...prev]);
-                  setStockForm({ item: "", unit: "", counted: "", notes: "" });
+                  setStockItems((prev) => [
+                    { id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, notes: stockForm.notes, updatedAt: new Date().toISOString().slice(0, 10) },
+                    ...prev,
+                  ]);
+                  setStockForm({ item: "", unit: "", stock: "", notes: "" });
                 }}
                 style={primaryButton(colors)}
               >
-                Tambah stok
+                Tambah item
               </button>
             </aside>
           </section>
         )}
 
         {activeTab === "meeting" && (
-          <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
-            <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>Meeting</div>
+          <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
+              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>Meeting</div>
               <div style={{ display: "grid", gap: 10 }}>
                 {meetings.map((m) => (
                   <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
@@ -838,15 +786,15 @@ function App() {
                 {meetings.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada jadwal meeting.</div>}
               </div>
             </div>
-            <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
-              <div style={{ fontSize: 16, fontWeight: 500 }}>Jadwalkan meeting</div>
+            <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>Jadwalkan meeting</div>
               <input value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} placeholder="Judul meeting" style={fieldStyle(colors)} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <input value={meetingForm.date} onChange={(e) => setMeetingForm((p) => ({ ...p, date: e.target.value }))} type="date" style={fieldStyle(colors)} />
                 <input value={meetingForm.time} onChange={(e) => setMeetingForm((p) => ({ ...p, time: e.target.value }))} type="time" style={fieldStyle(colors)} />
               </div>
               <input value={meetingForm.attendees} onChange={(e) => setMeetingForm((p) => ({ ...p, attendees: e.target.value }))} placeholder="Peserta (pisahkan dengan koma)" style={fieldStyle(colors)} />
-              <textarea value={meetingForm.notes} onChange={(e) => setMeetingForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Agenda atau catatan" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <textarea value={meetingForm.notes} onChange={(e) => setMeetingForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Agenda atau catatan" style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
               <button
                 onClick={() => {
                   if (!meetingForm.title.trim()) {
@@ -865,9 +813,9 @@ function App() {
         )}
 
         {activeTab === "maintenance" && (
-          <section style={{ display: "grid", gap: 20, gridTemplateColumns: "1.2fr 1fr" }}>
-            <div style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>Maintenance</div>
+          <section style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
+              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 14 }}>Maintenance</div>
               <div style={{ display: "grid", gap: 10 }}>
                 {maintenanceItems.map((m) => {
                   const badge = statusStyles[m.status] || statusStyles.Pending;
@@ -889,15 +837,15 @@ function App() {
                 {maintenanceItems.length === 0 && <div style={{ fontSize: 13, color: colors.muted }}>Belum ada catatan maintenance.</div>}
               </div>
             </div>
-            <aside style={{ background: colors.card, borderRadius: 12, padding: 18, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
-              <div style={{ fontSize: 16, fontWeight: 500 }}>Tambah maintenance</div>
+            <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 10, height: "fit-content" }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>Tambah maintenance</div>
               <input value={maintenanceForm.equipment} onChange={(e) => setMaintenanceForm((p) => ({ ...p, equipment: e.target.value }))} placeholder="Nama mesin atau alat" style={fieldStyle(colors)} />
-              <textarea value={maintenanceForm.issue} onChange={(e) => setMaintenanceForm((p) => ({ ...p, issue: e.target.value }))} placeholder="Deskripsi masalah" style={{ ...fieldStyle(colors), minHeight: 64, resize: "vertical" }} />
+              <textarea value={maintenanceForm.issue} onChange={(e) => setMaintenanceForm((p) => ({ ...p, issue: e.target.value }))} placeholder="Deskripsi masalah" style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
               <input value={maintenanceForm.technician} onChange={(e) => setMaintenanceForm((p) => ({ ...p, technician: e.target.value }))} placeholder="Teknisi" style={fieldStyle(colors)} />
               <select value={maintenanceForm.status} onChange={(e) => setMaintenanceForm((p) => ({ ...p, status: e.target.value as TaskStatus }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>
                 {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              <textarea value={maintenanceForm.notes} onChange={(e) => setMaintenanceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 56, resize: "vertical" }} />
+              <textarea value={maintenanceForm.notes} onChange={(e) => setMaintenanceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan" style={{ ...fieldStyle(colors), minHeight: 52, resize: "vertical" }} />
               <button
                 onClick={() => {
                   if (!maintenanceForm.equipment.trim()) {
