@@ -144,7 +144,7 @@ const translations = {
     meetingName: "Judul", date: "Tanggal", timeInput: "Waktu", attendeesInput: "Peserta", agenda: "Agenda", addMeeting: "Tambah meeting", noMeeting: "Kosong.",
     addMaint: "Tambah maintenance", equipName: "Peralatan", issueDesc: "Masalah", techName: "Teknisi", maintNotes: "Catatan", addMaintBtn: "Tambah", noMaint: "Kosong.",
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Masuk untuk mulai", loginName: "Nama", loginPassword: "Password", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.", passMismatch: "Password salah.",
-    csvSuccess: "tugas berhasil diimport!", csvError: "Gagal parse CSV.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
+    csvSuccess: "tugas berhasil di-parsing!", csvError: "Gagal parse CSV.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
     lowStock: "Stok Menipis!", minStock: "Batas Minimal", addSchedule: "Tambah Jadwal", responsible: "Penanggung Jawab", noLogs: "Belum ada aktivitas tercatat."
   },
   en: {
@@ -162,7 +162,7 @@ const translations = {
     meetingName: "Title", date: "Date", timeInput: "Time", attendeesInput: "Attendees", agenda: "Agenda", addMeeting: "Add meeting", noMeeting: "Empty.",
     addMaint: "Add maintenance", equipName: "Equipment", issueDesc: "Issue", techName: "Technician", maintNotes: "Notes", addMaintBtn: "Add", noMaint: "Empty.",
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Login to start", loginName: "Name", loginPassword: "Password", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.", passMismatch: "Incorrect password.",
-    csvSuccess: "tasks imported successfully!", csvError: "CSV parse failed.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
+    csvSuccess: "tasks parsed successfully!", csvError: "CSV parse failed.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
     lowStock: "Low Stock!", minStock: "Min Threshold", addSchedule: "Add Schedule", responsible: "Responsible", noLogs: "No activity logs yet."
   },
 };
@@ -263,6 +263,8 @@ export default function App() {
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [userLogo, setUserLogo] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(getToday());
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [pendingImportedTasks, setPendingImportedTasks] = useState<Task[] | null>(null);
 
   const colors = getColors(theme);
   const t = translations[lang];
@@ -310,7 +312,6 @@ export default function App() {
     }
   };
 
-  // ✅ ULTRA-ROBUST CSV PARSER
   const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
@@ -361,7 +362,7 @@ export default function App() {
           let startTime = rawStart;
           let endTime = rawEnd;
           if (!startTime && !endTime) {
-            const timeIndices = headers.reduce((acc: number[], val, idx) => val === 'time' ? [...acc, idx] : acc, []);
+            const timeIndices = headers.reduce((acc: number[], val, idx) => val.toLowerCase() === 'time' ? [...acc, idx] : acc, []);
             if (timeIndices.length >= 2) {
               startTime = cols[timeIndices[0]].trim();
               endTime = cols[timeIndices[1]].trim();
@@ -382,7 +383,7 @@ export default function App() {
             description: get(['description', 'deskripsi', 'keterangan']) || '',
             category,
             priority,
-            assignee: rawAssignee || currentUser?.name || "Unknown", 
+            assignee: rawAssignee || currentUser?.name || "Unknown",
             deadline: normalizedDate,
             date: normalizedDate,
             startTime,
@@ -400,10 +401,9 @@ export default function App() {
           return;
         }
 
-        setTasks(prev => [...newTasks, ...prev]);
-        if(newTasks.length > 0) setSelectedDate(newTasks[0].date);
-        addLog("TASK", `Imported ${newTasks.length} tasks via CSV`);
-        window.alert(`✅ ${newTasks.length} ${t.csvSuccess}`);
+        setPendingImportedTasks(newTasks);
+        setActiveTab("settings");
+        window.alert(`✅ ${newTasks.length} ${t.csvSuccess}\nSilakan klik tombol "Save to Local Storage" untuk menyimpan.`);
       } catch (err) {
         console.error("CSV Parse Error:", err);
         window.alert(t.csvError);
@@ -455,6 +455,11 @@ export default function App() {
     }
   }, [currentUser, theme, lang, tasks, stockItems, meetings, maintItems, scheduleItems, activityLogs]);
 
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const handleLogin = (user: CurrentUser) => {
     const session: UserSession = { id: String(Date.now()), username: user.name, role: user.roleTitle, isLoggedIn: true };
     localStorage.setItem("userSession", JSON.stringify(session));
@@ -483,8 +488,6 @@ export default function App() {
     tk.date === selectedDate && matchesUser(tk.assignee)
   ).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
 
-  // ✅ FIX: Removed unused 'stats' variable declaration that caused the build error
-
   const handleTaskPhotoUpload = (e: ChangeEvent<HTMLInputElement>, taskId: string) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader(); reader.onload = () => { const url = reader.result as string; if (url) setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, imageUrl: url } : tk)); }; reader.readAsDataURL(file);
@@ -511,16 +514,19 @@ export default function App() {
   };
 
   const shareWhatsApp = () => {
-    // ✅ FIX: Using non-null assertion (!) for currentUser
     const dateStr = formatDate(selectedDate);
     const timeStr = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    const tasksList = filteredTasks.map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
+    
+    const completedList = filteredTasks.filter(tk => tk.status === "Completed").map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
+    const pendingList = filteredTasks.filter(tk => tk.status !== "Completed" && tk.status !== "Cancelled").map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
+    const taskNotes = filteredTasks.filter(tk => tk.notes && tk.notes.trim() !== "").map(tk => `• [${tk.title}]: ${tk.notes}`).join("\n");
+    const notesText = taskNotes || "-";
     const stockList = stockItems.filter(s => s.date === selectedDate).map(s => `• ${s.item}: ${s.stock - s.keluar + s.masuk} ${s.unit}`).join("\n") || "-";
     const maintList = maintItems.filter(m => m.date === selectedDate).map(m => `• ${m.equipment}: ${m.issue} [${m.status}]`).join("\n") || "-";
     const meetingList = meetings.filter(m => m.date === selectedDate).map(m => `• ${m.title} (${m.time}) - ${m.attendees}`).join("\n") || "-";
-    const notes = "Overall performance is good. All critical tasks completed on schedule.";
+    
     const reportLink = `https://your-domain.com/report/${selectedDate}/${encodeURIComponent(currentUser!.name.toLowerCase().replace(/\s+/g, "-"))}`;
-    const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser!.name.toUpperCase()}\n💼 Role : ${currentUser!.roleTitle}\n🕒 Shift : ${currentUser!.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ TASKS\n${tasksList}\n\n📦 STOCK OPNAME\n${stockList}\n\n🔧 MAINTENANCE\n${maintList}\n\n📝 MEETING\n${meetingList}\n\n📌 NOTES\n${notes}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser!.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View report: ${reportLink}`;
+    const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser!.name.toUpperCase()}\n💼 Role : ${currentUser!.roleTitle}\n🕒 Shift : ${currentUser!.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ COMPLETED\n${completedList}\n\n⏳ PENDING / IN PROGRESS\n${pendingList}\n\n📦 STOCK OPNAME\n${stockList}\n\n🔧 MAINTENANCE\n${maintList}\n\n📝 MEETING\n${meetingList}\n\n📌 NOTES\n${notesText}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser!.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View report: ${reportLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
 
@@ -583,6 +589,7 @@ export default function App() {
           header { flex-direction: column; gap: 12px; padding: 16px; }
           header > div:nth-child(1) { width: 100%; justify-content: space-between; }
           header > div:nth-child(2) { position: static; transform: none; margin-top: 10px; align-items: center; }
+          .header-right { position: static; transform: none; margin-top: 10px; width: 100%; justify-content: space-between; }
         }
         input[type="date"], input[type="time"], select, input[type="password"] { color-scheme: ${theme}; }
         input[type="number"] { -moz-appearance: textfield; }
@@ -622,7 +629,12 @@ export default function App() {
             <h1 style={{ fontSize: "1.8rem", color: "#ADD8E6", fontWeight: 700, margin: 0, lineHeight: 1, whiteSpace: "nowrap", letterSpacing: "0.5px" }}>BLUE TICK ICE</h1>
             <span style={{ fontSize: "0.75rem", color: colors.muted, fontWeight: 500, marginTop: 2, textTransform: "uppercase", letterSpacing: "1px" }}>Daily Task Operational</span>
           </div>
-          {activeTab !== "settings" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), marginLeft: "auto", whiteSpace: "nowrap" }}>Share</button>}
+          <div className="header-right" style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 13, color: colors.muted, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+              {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            {activeTab !== "settings" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), whiteSpace: "nowrap" }}>Share</button>}
+          </div>
         </header>
 
         <main className="main-content">
@@ -748,6 +760,38 @@ export default function App() {
                   <div style={{ fontWeight: 600, marginBottom: 8 }}>{t.importCsv}</div>
                   <input id="settings-csv" type="file" accept=".csv" onChange={handleCsvUpload} style={{ display: "none" }} />
                   <label htmlFor="settings-csv" style={{ ...btnStyle("secondary"), cursor: "pointer", display: "inline-block", padding: "8px 16px" }}>Choose CSV</label>
+                  
+                  {/* ✅ FIXED: Explicit Save Button with Date Sync & Tab Switch */}
+                  {pendingImportedTasks && (
+                    <div style={{ marginTop: 16, padding: 14, background: colors.accentBg, borderRadius: 10, border: `1px solid ${colors.accent}` }}>
+                      <div style={{ fontSize: 13, color: colors.text, marginBottom: 8, fontWeight: 600 }}>📦 {pendingImportedTasks.length} tasks ready to save</div>
+                      <button style={btnStyle("primary")} onClick={() => {
+                        if (!pendingImportedTasks || pendingImportedTasks.length === 0) return;
+                        const targetDate = pendingImportedTasks[0].date;
+                        const mergedTasks = [...pendingImportedTasks, ...tasks];
+                        
+                        setTasks(mergedTasks);
+                        setSelectedDate(targetDate); // ✅ Sync date picker
+                        setSearch("");
+                        setFilterStat("All");
+                        setActiveTab("tasks"); // ✅ Navigate to Tasks tab
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        
+                        if(currentUser) {
+                          localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ 
+                            tasks: mergedTasks, 
+                            stock: stockItems, 
+                            meetings, 
+                            maintenance: maintItems, 
+                            schedule: scheduleItems, 
+                            logs: activityLogs 
+                          }));
+                        }
+                        setPendingImportedTasks(null);
+                        window.alert("✅ Tasks saved & synced to Local Storage!");
+                      }}>💾 Save to Local Storage</button>
+                    </div>
+                  )}
                 </div>
                 <div className="task-card" style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 40, marginBottom: 10 }}>🗑️</div>
