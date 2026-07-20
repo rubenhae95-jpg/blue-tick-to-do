@@ -81,6 +81,9 @@ const categories: string[] = [
   "Driver",
   "Production Cleaning",
   "Office",
+  "Maintenance",
+  "Quality Control",
+  "Administration",
   "Others",
 ];
 const priorities: Priority[] = ["High", "Medium", "Low"];
@@ -121,7 +124,7 @@ const translations = {
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Masuk untuk mulai",
     loginName: "Nama", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.",
     pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
-    csvSuccess: "task berhasil diimport!", csvError: "Gagal parse CSV. Format: title,description,category,priority,assignee,deadline,status",
+    csvSuccess: "tugas berhasil diimport!", csvError: "Gagal parse CSV. Pastikan header: title,description,category,priority,assignee,deadline,status",
   },
   en: {
     darkMode: "Dark mode", lightMode: "Light mode",
@@ -149,7 +152,7 @@ const translations = {
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Login to start",
     loginName: "Name", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.",
     pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
-    csvSuccess: "tasks imported successfully!", csvError: "CSV parse failed. Format: title,description,category,priority,assignee,deadline,status",
+    csvSuccess: "tasks imported successfully!", csvError: "CSV parse failed. Ensure headers: title,description,category,priority,assignee,deadline,status",
   },
 };
 
@@ -247,108 +250,115 @@ export default function App() {
   };
   const pct = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
 
-  // ✅ FIXED: Robust CSV Parser
+  // ✅ FIXED: Ultra-Robust CSV Parser
   const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        let text = ev.target?.result as string;
-        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+        let text = (ev.target?.result as string).replace(/^\uFEFF/, '');
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
         if (lines.length < 2) { window.alert("CSV harus memiliki header dan minimal 1 baris data."); return; }
-        
-        const parseLine = (line: string): string[] => {
+
+        const parseCSVLine = (line: string): string[] => {
           const result: string[] = [];
           let current = '';
           let inQuotes = false;
           for (let i = 0; i < line.length; i++) {
             const char = line[i];
-            if (char === '"') { inQuotes = !inQuotes; }
+            if (char === '"') inQuotes = !inQuotes;
             else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
-            else { current += char; }
+            else current += char;
           }
           result.push(current.trim());
           return result;
         };
 
-        const headers = parseLine(lines[0]).map(h => h.toLowerCase());
+        const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'));
         const newTasks: Task[] = [];
-        
+
         for (let i = 1; i < lines.length; i++) {
-          const cols = parseLine(lines[i]);
-          const get = (name: string) => {
-            const idx = headers.indexOf(name.toLowerCase());
-            return idx >= 0 ? (cols[idx] || "") : "";
+          const cols = parseCSVLine(lines[i]);
+          if (cols.length < 2) continue;
+
+          const get = (key: string) => {
+            const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
+            const idx = headers.indexOf(normalizedKey);
+            return idx >= 0 ? (cols[idx] || '').trim() : '';
           };
-          
+
+          const rawCat = get('category') || get('kategori') || get('departemen') || '';
+          const matchedCat = categories.find(c => c.toLowerCase() === rawCat.toLowerCase()) || rawCat || 'Others';
+
+          const rawPri = get('priority') || get('prioritas') || '';
+          const matchedPri = priorities.find(p => p.toLowerCase() === rawPri.toLowerCase()) || 'Medium';
+
+          const rawStat = get('status') || get('staus') || '';
+          const matchedStat = statuses.find(s => s.toLowerCase() === rawStat.toLowerCase()) || 'Pending';
+
           newTasks.push({
             id: String(Date.now() + Math.random()),
-            title: get("title") || get("judul") || "Untitled",
-            description: get("description") || get("deskripsi") || "",
-            category: (categories.find(c => c.toLowerCase() === get("category").toLowerCase()) || get("category") || "Others"),
-            priority: (priorities.find(p => p.toLowerCase() === (get("priority") || get("prioritas")).toLowerCase()) || "Medium") as Priority,
-            assignee: get("assignee") || get("penanggung_jawab") || get("staff") || "",
-            deadline: get("deadline") || get("batas") || new Date().toISOString().slice(0, 10),
-            status: (statuses.find(s => s.toLowerCase() === (get("status") || "").toLowerCase()) || "Pending") as TaskStatus,
-            notes: "", createdAt: new Date().toISOString().slice(0, 10), createdByRole: "Staff"
+            title: get('title') || get('judul') || get('nama_task') || `Task ${i}`,
+            description: get('description') || get('deskripsi') || '',
+            category: matchedCat,
+            priority: matchedPri as Priority,
+            assignee: get('assignee') || get('penanggung_jawab') || get('staff') || get('nama') || '',
+            deadline: get('deadline') || get('batas') || get('tanggal') || new Date().toISOString().slice(0, 10),
+            status: matchedStat as TaskStatus,
+            notes: '',
+            createdAt: new Date().toISOString().slice(0, 10),
+            createdByRole: 'Staff'
           });
         }
-        
-        if (newTasks.length > 0) {
-          setTasks(prev => [...newTasks, ...prev]);
-          setSearch(""); setFilterCat("All"); setFilterStat("All"); setFilterPri("All");
-          window.alert(`${newTasks.length} ${t.csvSuccess}`);
-        } else {
-          window.alert("Tidak ada data valid ditemukan di CSV.");
+
+        if (newTasks.length === 0) {
+          window.alert("Tidak ada data valid ditemukan. Periksa format CSV.");
+          return;
         }
-      } catch { window.alert(t.csvError); }
+
+        setTasks(prev => [...newTasks, ...prev]);
+        setSearch(''); setFilterCat('All'); setFilterStat('All'); setFilterPri('All');
+        window.alert(`✅ Berhasil mengimport ${newTasks.length} ${t.csvSuccess}`);
+      } catch (err) {
+        console.error("CSV Parse Error:", err);
+        window.alert(t.csvError);
+      }
     };
     reader.readAsText(file);
-    e.target.value = "";
+    e.target.value = '';
   };
 
-  // ✅ FIXED: TypeScript strict mode compliance
   const handleTaskPhotoUpload = (e: ChangeEvent<HTMLInputElement>, taskId: string) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       const imgUrl = reader.result as string;
-      if (imgUrl) {
-        setTasks((prev) => prev.map((tk) => tk.id === taskId ? { ...tk, imageUrl: imgUrl } : tk));
-      }
+      if (imgUrl) setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, imageUrl: imgUrl } : tk));
     };
     reader.readAsDataURL(file);
   };
 
-  // ✅ FIXED: Removed unused 'isNew' variable
   const handleSaveTask = () => {
     if (!taskForm.title?.trim()) { window.alert(t.alertTitleRequired); return; }
     if (!taskForm.assignee?.trim()) { window.alert(t.alertAssigneeRequired); return; }
     
     const norm: Task = { 
       id: taskForm.id || String(Date.now()), 
-      title: taskForm.title, 
-      description: taskForm.description || "", 
+      title: taskForm.title, description: taskForm.description || "", 
       category: taskForm.category || "Production Cleaning", 
       priority: (taskForm.priority || "Medium") as Priority, 
       assignee: taskForm.assignee, 
       deadline: taskForm.deadline || new Date().toISOString().slice(0, 10), 
       status: (taskForm.status || "Pending") as TaskStatus, 
-      notes: taskForm.notes || "", 
-      createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10), 
+      notes: taskForm.notes || "", createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10), 
       createdByRole: taskForm.createdByRole || currentUser.permissionRole, 
-      startTime: taskForm.startTime, 
-      endTime: taskForm.endTime, 
-      reason: taskForm.reason || "", 
-      imageUrl: taskForm.imageUrl || "" 
+      startTime: taskForm.startTime, endTime: taskForm.endTime, reason: taskForm.reason || "", imageUrl: taskForm.imageUrl || "" 
     };
 
     setTasks(prev => {
       const exists = prev.some(i => i.id === norm.id);
       return exists ? prev.map(i => i.id === norm.id ? norm : i) : [norm, ...prev];
     });
-    
     setTaskForm({ title: "", description: "", category: "Production Cleaning", priority: "Medium", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   };
 
@@ -380,11 +390,7 @@ export default function App() {
         </header>
 
         <div style={{ display: "grid", gap: 8 }}>
-          <select
-            value={activeTab}
-            onChange={(e) => setActiveTab(e.target.value as Tab)}
-            style={{ ...fieldStyle(colors), maxWidth: 280, cursor: "pointer", fontWeight: 500 }}
-          >
+          <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as Tab)} style={{ ...fieldStyle(colors), maxWidth: 280, cursor: "pointer", fontWeight: 500 }}>
             <option value="tasks">{t.tasks}</option>
             <option value="stock">{t.stock}</option>
             <option value="meeting">{t.meeting}</option>
