@@ -121,7 +121,7 @@ const translations = {
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Masuk untuk mulai",
     loginName: "Nama", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.",
     pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
-    csvSuccess: "Berhasil!", csvError: "Gagal parse CSV. Format: title,description,category,priority,assignee,deadline,status",
+    csvSuccess: "task berhasil diimport!", csvError: "Gagal parse CSV. Format: title,description,category,priority,assignee,deadline,status",
   },
   en: {
     darkMode: "Dark mode", lightMode: "Light mode",
@@ -149,7 +149,7 @@ const translations = {
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Login to start",
     loginName: "Name", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.",
     pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
-    csvSuccess: "Imported successfully!", csvError: "CSV parse failed. Format: title,description,category,priority,assignee,deadline,status",
+    csvSuccess: "tasks imported successfully!", csvError: "CSV parse failed. Format: title,description,category,priority,assignee,deadline,status",
   },
 };
 
@@ -253,58 +253,102 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const text = ev.target?.result as string;
+        let text = ev.target?.result as string;
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
         if (lines.length < 2) { window.alert("CSV harus memiliki header dan minimal 1 baris data."); return; }
         
-        const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+        const parseLine = (line: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') { inQuotes = !inQuotes; }
+            else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+            else { current += char; }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = parseLine(lines[0]).map(h => h.toLowerCase());
         const newTasks: Task[] = [];
         
         for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(",").map(c => c.trim());
+          const cols = parseLine(lines[i]);
           const get = (name: string) => {
             const idx = headers.indexOf(name.toLowerCase());
-            return idx >= 0 ? cols[idx] || "" : "";
+            return idx >= 0 ? (cols[idx] || "") : "";
           };
           
           newTasks.push({
             id: String(Date.now() + Math.random()),
-            title: get("title") || "Untitled",
-            description: get("description") || "",
-            category: categories.find(c => c.toLowerCase() === get("category").toLowerCase()) || get("category") || "Others",
-            priority: (priorities.find(p => p.toLowerCase() === get("priority").toLowerCase()) || "Medium") as Priority,
-            assignee: get("assignee") || "",
-            deadline: get("deadline") || new Date().toISOString().slice(0, 10),
-            status: (statuses.find(s => s.toLowerCase() === get("status").toLowerCase()) || "Pending") as TaskStatus,
+            title: get("title") || get("judul") || "Untitled",
+            description: get("description") || get("deskripsi") || "",
+            category: (categories.find(c => c.toLowerCase() === get("category").toLowerCase()) || get("category") || "Others"),
+            priority: (priorities.find(p => p.toLowerCase() === (get("priority") || get("prioritas")).toLowerCase()) || "Medium") as Priority,
+            assignee: get("assignee") || get("penanggung_jawab") || get("staff") || "",
+            deadline: get("deadline") || get("batas") || new Date().toISOString().slice(0, 10),
+            status: (statuses.find(s => s.toLowerCase() === (get("status") || "").toLowerCase()) || "Pending") as TaskStatus,
             notes: "", createdAt: new Date().toISOString().slice(0, 10), createdByRole: "Staff"
           });
         }
         
-        setTasks(prev => [...newTasks, ...prev]);
-        window.alert(`${newTasks.length} ${t.csvSuccess}`);
+        if (newTasks.length > 0) {
+          setTasks(prev => [...newTasks, ...prev]);
+          setSearch(""); setFilterCat("All"); setFilterStat("All"); setFilterPri("All");
+          window.alert(`${newTasks.length} ${t.csvSuccess}`);
+        } else {
+          window.alert("Tidak ada data valid ditemukan di CSV.");
+        }
       } catch { window.alert(t.csvError); }
     };
     reader.readAsText(file);
     e.target.value = "";
   };
 
+  // ✅ FIXED: TypeScript strict mode compliance
   const handleTaskPhotoUpload = (e: ChangeEvent<HTMLInputElement>, taskId: string) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, imageUrl: reader.result } : tk));
+      const imgUrl = reader.result as string;
+      if (imgUrl) {
+        setTasks((prev) => prev.map((tk) => tk.id === taskId ? { ...tk, imageUrl: imgUrl } : tk));
       }
     };
     reader.readAsDataURL(file);
   };
 
+  // ✅ FIXED: Removed unused 'isNew' variable
   const handleSaveTask = () => {
     if (!taskForm.title?.trim()) { window.alert(t.alertTitleRequired); return; }
     if (!taskForm.assignee?.trim()) { window.alert(t.alertAssigneeRequired); return; }
-    const isNew = !taskForm.id;
-    const norm: Task = { id: taskForm.id || String(Date.now()), title: taskForm.title, description: taskForm.description || "", category: taskForm.category || "Production Cleaning", priority: (taskForm.priority || "Medium") as Priority, assignee: taskForm.assignee, deadline: taskForm.deadline || new Date().toISOString().slice(0, 10), status: (taskForm.status || "Pending") as TaskStatus, notes: taskForm.notes || "", createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10), createdByRole: taskForm.createdByRole || currentUser.permissionRole, startTime: taskForm.startTime, endTime: taskForm.endTime, reason: taskForm.reason || "", imageUrl: taskForm.imageUrl || "" };
-    setTasks(prev => { const exists = prev.some(i => i.id === norm.id); return exists ? prev.map(i => i.id === norm.id ? norm : i) : [norm, ...prev]; });
+    
+    const norm: Task = { 
+      id: taskForm.id || String(Date.now()), 
+      title: taskForm.title, 
+      description: taskForm.description || "", 
+      category: taskForm.category || "Production Cleaning", 
+      priority: (taskForm.priority || "Medium") as Priority, 
+      assignee: taskForm.assignee, 
+      deadline: taskForm.deadline || new Date().toISOString().slice(0, 10), 
+      status: (taskForm.status || "Pending") as TaskStatus, 
+      notes: taskForm.notes || "", 
+      createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10), 
+      createdByRole: taskForm.createdByRole || currentUser.permissionRole, 
+      startTime: taskForm.startTime, 
+      endTime: taskForm.endTime, 
+      reason: taskForm.reason || "", 
+      imageUrl: taskForm.imageUrl || "" 
+    };
+
+    setTasks(prev => {
+      const exists = prev.some(i => i.id === norm.id);
+      return exists ? prev.map(i => i.id === norm.id ? norm : i) : [norm, ...prev];
+    });
+    
     setTaskForm({ title: "", description: "", category: "Production Cleaning", priority: "Medium", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   };
 
@@ -335,7 +379,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* ✅ DROPDOWN NAVIGATION */}
         <div style={{ display: "grid", gap: 8 }}>
           <select
             value={activeTab}
