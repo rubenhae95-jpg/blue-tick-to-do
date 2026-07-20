@@ -4,8 +4,16 @@ type PermissionRole = "Admin" | "Staff";
 type TaskStatus = "Pending" | "In progress" | "Completed" | "Cancelled";
 type Priority = "High" | "Medium" | "Low";
 type Theme = "light" | "dark";
-type Tab = "tasks" | "stock" | "meeting" | "maintenance";
+type Tab = "dashboard" | "tasks" | "stock" | "meeting" | "maintenance" | "schedule" | "activity_log";
 type Lang = "id" | "en";
+
+// ✅ Interface UserSession
+interface UserSession {
+  id: string;
+  username: string;
+  role?: string;
+  isLoggedIn: boolean;
+}
 
 type CurrentUser = {
   name: string;
@@ -39,10 +47,11 @@ type Colors = {
   text: string;
   muted: string;
   border: string;
-  borderStrong: string;
   accent: string;
   accentBg: string;
   danger: string;
+  success: string;
+  warning: string;
 };
 
 type StockItem = {
@@ -54,6 +63,7 @@ type StockItem = {
   keluar: number;
   notes: string;
   updatedAt: string;
+  minStock: number;
 };
 
 type Meeting = {
@@ -75,96 +85,120 @@ type MaintenanceItem = {
   notes: string;
 };
 
-const categories: string[] = [
-  "Factory Supervisor", "Factory Logistik", "Driver", "Production", "Cleaning", "Office", "Maintenance", "Quality Control", "Administration", "Others",
-];
+type ScheduleEntry = {
+  id: string;
+  equipment: string;
+  date: string;
+  status: TaskStatus;
+  responsible: string;
+  notes: string;
+};
+
+type LogEntry = {
+  id: string;
+  type: string;
+  action: string;
+  timestamp: string;
+};
+
+// Default placeholder
+const DEFAULT_LOGO = "https://via.placeholder.com/48/0EA5E9/FFFFFF?text=BT";
+
+const categories: string[] = ["Production", "Cleaning", "Logistics", "Supervision", "Office", "Maintenance", "Other"];
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
 const shifts: string[] = ["Day", "Night"];
 
-const statusStyles: Record<TaskStatus, { bg: string; text: string }> = {
-  Pending: { bg: "#eef2f8", text: "#5b6b82" }, "In progress": { bg: "#dbeafe", text: "#1d4ed8" },
-  Completed: { bg: "#dcecff", text: "#0c4a8c" }, Cancelled: { bg: "#fde8e8", text: "#a12626" },
+const statusColors: Record<TaskStatus, { bg: string; text: string }> = {
+  Pending: { bg: "#FEF3C7", text: "#B45309" },
+  "In progress": { bg: "#DBEAFE", text: "#1D4ED8" },
+  Completed: { bg: "#DCFCE7", text: "#166534" },
+  Cancelled: { bg: "#FEE2E2", text: "#991B1B" },
 };
 
 const translations = {
   id: {
-    darkMode: "Mode gelap", lightMode: "Mode terang", totalTasks: "Total tugas", completed: "Selesai", remaining: "Belum selesai", pending: "Pending",
-    shareDescription: "Bagikan laporan harian ke WhatsApp.", taskFormTitle: "Tambah / Edit Task", adminStaffNote: "Admin & Staff bisa buat task. Edit/Hapus bebas.",
+    dashboard: "Dashboard", tasks: "Tasks", stock: "Stok Opname", meeting: "Meeting Notes", maintenance: "Maintenance", 
+    schedule: "Maintenance Schedule", activityLog: "Activity Log",
+    total: "Total Tasks", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
+    progress: "Today's Progress", share: "Share Report", addTask: "Tambah Task", edit: "Edit", save: "Simpan", cancel: "Batal", delete: "Hapus",
+    checklist: "Checklist", undo: "Undo", noTasks: "Tidak ada task hari ini.", login: "Masuk", logout: "Keluar",
+    darkMode: "Mode gelap", lightMode: "Mode terang", taskFormTitle: "Tambah / Edit Task", adminStaffNote: "Admin & Staff bisa buat task. Edit/Hapus bebas.",
     titlePlaceholder: "Judul tugas", descriptionPlaceholder: "Deskripsi tugas", assigneePlaceholder: "Penanggung jawab", notesPlaceholder: "Catatan internal",
-    reasonPlaceholder: "Alasan pending/progress", saveChanges: "Simpan", addTask: "Tambah task", alertTitleRequired: "Judul wajib diisi.", alertAssigneeRequired: "Assignee wajib diisi.",
-    taskCreatedByRole: "tugas oleh", limitReached: "Batas task tercapai.", canAddTask: "Dapat menambah task.", subtitle: "Daily Task Operations", logoUpload: "Ganti logo", logout: "Keluar",
-    tasks: "Tasks", stock: "Stok Opname", meeting: "Meeting", maintenance: "Maintenance", progress: "Progress Detail", checklist: "Checklist", undo: "Undo", edit: "Edit", delete: "Hapus",
-    addNote: "Catatan tambahan", noTasks: "Tidak ada task.", searchPlaceholder: "Cari tugas", all: "Semua", deadline: "Deadline", created: "Dibuat", time: "Waktu", reason: "Alasan",
-    importCsv: "Import CSV Bulk", uploadPhoto: "📷 Foto", stockTitle: "Stok Opname", updateLast: "Update", addNewItem: "Tambah item", itemName: "Nama item", initialStock: "Stok awal",
-    incoming: "Masuk", outgoing: "Keluar", currentStock: "Sisa", deleteItem: "Hapus item", noStock: "Kosong.", meetingTitle: "Meeting", attendees: "Peserta", scheduleMeeting: "Jadwalkan",
+    reasonPlaceholder: "Alasan pending/progress", alertTitleRequired: "Judul wajib diisi.", alertAssigneeRequired: "Assignee wajib diisi.",
+    importCsv: "Import CSV Bulk", uploadPhoto: "Upload Foto", updateLast: "Update", addNewItem: "Tambah item", itemName: "Nama item", initialStock: "Stok awal",
+    incoming: "Masuk", outgoing: "Keluar", currentStock: "Sisa", deleteItem: "Hapus item", noStock: "Kosong.", scheduleMeeting: "Jadwalkan",
     meetingName: "Judul", date: "Tanggal", timeInput: "Waktu", attendeesInput: "Peserta", agenda: "Agenda", addMeeting: "Tambah meeting", noMeeting: "Kosong.",
-    maintTitle: "Maintenance", addMaint: "Tambah maintenance", equipName: "Peralatan", issueDesc: "Masalah", techName: "Teknisi", maintNotes: "Catatan", addMaintBtn: "Tambah", noMaint: "Kosong.",
-    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Masuk untuk mulai", loginName: "Nama", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.",
-    pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
-    csvSuccess: "tugas berhasil diimport!", csvError: "Gagal parse CSV. Pastikan header: title,description,category,priority,assignee,deadline,status",
+    addMaint: "Tambah maintenance", equipName: "Peralatan", issueDesc: "Masalah", techName: "Teknisi", maintNotes: "Catatan", addMaintBtn: "Tambah", noMaint: "Kosong.",
+    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Masuk untuk mulai", loginName: "Nama", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.",
+    csvSuccess: "tugas berhasil diimport!", csvError: "Gagal parse CSV.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
+    noReportTasks: "Belum ada aktivitas tercatat untuk hari ini.",
+    lowStock: "Stok Menipis!", minStock: "Batas Minimal", addSchedule: "Tambah Jadwal", responsible: "Penanggung Jawab", noLogs: "Belum ada aktivitas tercatat."
   },
   en: {
-    darkMode: "Dark mode", lightMode: "Light mode", totalTasks: "Total tasks", completed: "Completed", remaining: "Remaining", pending: "Pending",
-    shareDescription: "Share daily report to WhatsApp.", taskFormTitle: "Add / Edit Task", adminStaffNote: "Admin & Staff can create. Edit/Delete open.",
+    dashboard: "Dashboard", tasks: "Tasks", stock: "Stock Opname", meeting: "Meeting Notes", maintenance: "Maintenance",
+    schedule: "Maintenance Schedule", activityLog: "Activity Log",
+    total: "Total Tasks", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
+    progress: "Today's Progress", share: "Share Report", addTask: "Add Task", edit: "Edit", save: "Save", cancel: "Cancel", delete: "Delete",
+    checklist: "Checklist", undo: "Undo", noTasks: "No tasks today.", login: "Login", logout: "Logout",
+    darkMode: "Dark mode", lightMode: "Light mode", taskFormTitle: "Add / Edit Task", adminStaffNote: "Admin & Staff can create. Edit/Delete open.",
     titlePlaceholder: "Task title", descriptionPlaceholder: "Description", assigneePlaceholder: "Assignee", notesPlaceholder: "Notes",
-    reasonPlaceholder: "Reason if pending/progress", saveChanges: "Save", addTask: "Add task", alertTitleRequired: "Title required.", alertAssigneeRequired: "Assignee required.",
-    taskCreatedByRole: "tasks by", limitReached: "Limit reached.", canAddTask: "Can add tasks.", subtitle: "Daily Task Operations", logoUpload: "Change logo", logout: "Logout",
-    tasks: "Tasks", stock: "Stock Opname", meeting: "Meeting", maintenance: "Maintenance", progress: "Detailed Progress", checklist: "Checklist", undo: "Undo", edit: "Edit", delete: "Delete",
-    addNote: "Add note", noTasks: "No tasks.", searchPlaceholder: "Search", all: "All", deadline: "Deadline", created: "Created", time: "Time", reason: "Reason",
-    importCsv: "Bulk Import CSV", uploadPhoto: "📷 Photo", stockTitle: "Stock Opname", updateLast: "Updated", addNewItem: "Add item", itemName: "Item name", initialStock: "Initial Stock",
-    incoming: "In", outgoing: "Out", currentStock: "Remaining", deleteItem: "Delete item", noStock: "Empty.", meetingTitle: "Meeting", attendees: "Attendees", scheduleMeeting: "Schedule",
+    reasonPlaceholder: "Reason if pending/progress", alertTitleRequired: "Title required.", alertAssigneeRequired: "Assignee required.",
+    importCsv: "Bulk Import CSV", uploadPhoto: "Upload Photo", updateLast: "Updated", addNewItem: "Add item", itemName: "Item name", initialStock: "Initial Stock",
+    incoming: "In", outgoing: "Out", currentStock: "Remaining", deleteItem: "Delete item", noStock: "Empty.", scheduleMeeting: "Schedule",
     meetingName: "Title", date: "Date", timeInput: "Time", attendeesInput: "Attendees", agenda: "Agenda", addMeeting: "Add meeting", noMeeting: "Empty.",
-    maintTitle: "Maintenance", addMaint: "Add maintenance", equipName: "Equipment", issueDesc: "Issue", techName: "Technician", maintNotes: "Notes", addMaintBtn: "Add", noMaint: "Empty.",
-    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operations", loginDesc: "Login to start", loginName: "Name", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.",
-    pendingTasks: "Pending", inProgress: "In Progress", cancelled: "Cancelled", completionRate: "Completion Rate",
-    csvSuccess: "tasks imported successfully!", csvError: "CSV parse failed. Ensure headers: title,description,category,priority,assignee,deadline,status",
+    addMaint: "Add maintenance", equipName: "Equipment", issueDesc: "Issue", techName: "Technician", maintNotes: "Notes", addMaintBtn: "Add", noMaint: "Empty.",
+    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Login to start", loginName: "Name", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.",
+    csvSuccess: "tasks imported successfully!", csvError: "CSV parse failed.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
+    noReportTasks: "No activities recorded for today.",
+    lowStock: "Low Stock!", minStock: "Min Threshold", addSchedule: "Add Schedule", responsible: "Responsible", noLogs: "No activity logs yet."
   },
 };
 
 const sampleTasks: Task[] = [
-  { id: "1", title: "Clean machine", description: "Bersihkan mesin utama.", category: "Cleaning", priority: "High", assignee: "Budi", deadline: "2026-07-17", status: "Completed", notes: "Selesai.", createdAt: "2026-07-17", startTime: "08:00", endTime: "09:10", createdByRole: "Admin" },
-  { id: "2", title: "Wash mold", description: "Cuci cetakan.", category: "Factory Supervisor", priority: "Medium", assignee: "Ani", deadline: "2026-07-17", status: "Completed", notes: "OK.", createdAt: "2026-07-17" },
+  { id: "1", title: "Check LP & HP Pressure", description: "Verifikasi tekanan sistem.", category: "Maintenance", priority: "High", assignee: "Ilham", deadline: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:00", endTime: "07:08" },
+  { id: "2", title: "Record Production Data", description: "Input data ke sheet.", category: "Production", priority: "High", assignee: "Ilham", deadline: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:15", endTime: "07:22" },
+  { id: "3", title: "Clean Packing Table", description: "Membersihkan area packing.", category: "Cleaning", priority: "Medium", assignee: "Ilham", deadline: "2026-07-18", status: "Completed", notes: "", createdAt: "2026-07-18", startTime: "07:30", endTime: "07:45" },
+  { id: "4", title: "Machine Lubrication", description: "Oleskan pelumas pada bearing.", category: "Maintenance", priority: "High", assignee: "Ilham", deadline: "2026-07-18", status: "Pending", notes: "", createdAt: "2026-07-18", reason: "Waiting for lubricant." },
 ];
 
 const sampleStock: StockItem[] = [
-  { id: "1", item: "Es kristal", unit: "kg", stock: 150, masuk: 20, keluar: 50, notes: "Aman", updatedAt: "2026-07-18" },
-  { id: "2", item: "Kantong", unit: "pcs", stock: 400, masuk: 0, keluar: 60, notes: "Low", updatedAt: "2026-07-18" },
+  { id: "1", item: "Es kristal", unit: "kg", stock: 150, masuk: 20, keluar: 50, notes: "Aman", updatedAt: "2026-07-18", minStock: 100 },
+  { id: "2", item: "Kantong", unit: "pcs", stock: 400, masuk: 0, keluar: 60, notes: "Low", updatedAt: "2026-07-18", minStock: 500 },
 ];
 
 const sampleMeetings: Meeting[] = [{ id: "1", title: "Briefing", date: "2026-07-19", time: "07:30", attendees: "Budi, Siti", notes: "Target harian" }];
 const sampleMaintenance: MaintenanceItem[] = [{ id: "1", equipment: "Ice Ball Machine", issue: "Noise", technician: "Dedi", status: "In progress", date: "2026-07-18", notes: "Wait part" }];
 
 const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-";
-const formatTimeRange = (t: Task) => t.startTime && t.endTime ? `${t.startTime} - ${t.endTime}` : "-";
+const formatTimeRange = (t: Task) => t.startTime && t.endTime ? `${t.startTime} – ${t.endTime}` : "-";
+const formatDateTime = (iso: string) => new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
 const getColors = (theme: Theme): Colors => theme === "light"
-  ? { page: "#EAF3FC", card: "#FFFFFF", cardMuted: "#F0F7FE", text: "#16324A", muted: "#5B7690", border: "rgba(22,50,74,0.10)", borderStrong: "rgba(22,50,74,0.20)", accent: "#2F7FE0", accentBg: "#DCEBFB", danger: "#B33636" }
-  : { page: "#0E1B2B", card: "#152840", cardMuted: "#1B324E", text: "#EAF3FC", muted: "#93AFC9", border: "rgba(234,243,252,0.10)", borderStrong: "rgba(234,243,252,0.20)", accent: "#7DD3FC", accentBg: "#1E3A57", danger: "#E8A0A0" };
+  ? { page: "#F8FAFC", card: "#FFFFFF", cardMuted: "#F1F5F9", text: "#0F172A", muted: "#64748B", border: "#E2E8F0", accent: "#0EA5E9", accentBg: "#E0F2FE", danger: "#EF4444", success: "#10B981", warning: "#F59E0B" }
+  : { page: "#0B1120", card: "#111827", cardMuted: "#1F2937", text: "#F3F4F6", muted: "#9CA3AF", border: "#374151", accent: "#38BDF8", accentBg: "#0C4A6E", danger: "#F87171", success: "#34D399", warning: "#FBBF24" };
 
-const fieldStyle = (c: Colors) => ({ width: "100%", borderRadius: 8, border: `0.5px solid ${c.border}`, padding: "10px 12px", background: c.cardMuted, color: c.text, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box" as const, touchAction: "manipulation" });
-const secondaryBtn = (c: Colors) => ({ borderRadius: 8, border: `0.5px solid ${c.borderStrong}`, padding: "10px 14px", background: "transparent", color: c.text, cursor: "pointer", fontSize: 14, touchAction: "manipulation" });
-const primaryBtn = (c: Colors) => ({ borderRadius: 8, border: "none", padding: "11px 16px", background: c.accent, color: "#FFFFFF", cursor: "pointer", fontSize: 14, fontWeight: 500, touchAction: "manipulation" });
-
+// ✅ MODIFIED: LoginScreen without Logo
 function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: CurrentUser) => void; t: typeof translations.id }) {
   const [name, setName] = useState(""); const [roleTitle, setRoleTitle] = useState(""); const [role, setRole] = useState<PermissionRole>("Staff"); const [shift, setShift] = useState("Day"); const [err, setErr] = useState("");
   const submit = () => { if (!name.trim()) { setErr(t.nameRequired); return; } setErr(""); onLogin({ name: name.trim(), roleTitle: roleTitle.trim() || "Staff", permissionRole: role, shift }); };
   return (
-    <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 24, fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 340, background: colors.card, borderRadius: 12, border: `0.5px solid ${colors.border}`, padding: 24 }}>
-        <div style={{ fontSize: 12, color: colors.muted }}>{t.loginSubtitle}</div>
-        <div style={{ fontSize: 28, fontFamily: "'Bebas Neue', sans-serif", color: colors.accent, marginBottom: 4 }}>{t.loginTitle}</div>
-        <div style={{ fontSize: 14, color: colors.muted, marginBottom: 20 }}>{t.loginDesc}</div>
-        <div style={{ display: "grid", gap: 12 }}>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder={t.loginName} style={fieldStyle(colors)} onKeyDown={e => e.key === "Enter" && submit()} />
-          <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder={t.loginRole} style={fieldStyle(colors)} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <select value={role} onChange={e => setRole(e.target.value as PermissionRole)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>Staff</option><option>Admin</option></select>
-            <select value={shift} onChange={e => setShift(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{shifts.map(s => <option key={s}>{s}</option>)}</select>
-          </div>
-          {err && <div style={{ fontSize: 13, color: colors.danger }}>{err}</div>}
-          <button onClick={submit} style={primaryBtn(colors)}>{t.loginBtn}</button>
+    <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 20, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+      <div style={{ width: "100%", maxWidth: 360, background: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, padding: 24, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          {/* ✅ LOGO DIHAPUS DARI HALAMAN LOGIN */}
+          {/* <img src={...} ... /> */}
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: colors.text, margin: 0 }}>{t.loginTitle}</h1>
+          <p style={{ fontSize: 14, color: colors.muted, margin: "4px 0 0" }}>{t.loginSubtitle}</p>
         </div>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder={t.loginName} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, marginBottom: 12, fontSize: 14, boxSizing: "border-box" }} onKeyDown={e => e.key === "Enter" && submit()} />
+        <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder={t.loginRole} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, marginBottom: 12, fontSize: 14, boxSizing: "border-box" }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+          <select value={role} onChange={e => setRole(e.target.value as PermissionRole)} style={{ padding: "10px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text }}><option>Staff</option><option>Admin</option></select>
+          <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "10px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text }}>{shifts.map(s => <option key={s}>{s}</option>)}</select>
+        </div>
+        {err && <div style={{ fontSize: 13, color: colors.danger, marginBottom: 8 }}>{err}</div>}
+        <button onClick={submit} style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: colors.accent, color: "#FFF", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>{t.loginBtn}</button>
       </div>
     </div>
   );
@@ -174,65 +208,124 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme>("light");
   const [lang, setLang] = useState<Lang>("id");
+  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [isMenuOpen, setMenuOpen] = useState(false);
+  
+  // ✅ STATE LOGO
+  const [userLogo, setUserLogo] = useState<string | null>(null);
+
   const colors = getColors(theme);
   const t = translations[lang];
-  const [activeTab, setActiveTab] = useState<Tab>("tasks");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const [tasks, setTasks] = useState<Task[]>(sampleTasks);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All"); const [filterStat, setFilterStat] = useState("All"); const [filterPri, setFilterPri] = useState("All");
-  const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: "", description: "", category: "Production", priority: "Medium", assignee: "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
-  
+  const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: "", description: "", category: "Production", priority: "High", assignee: "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Task>>({});
+
   const [stockItems, setStockItems] = useState<StockItem[]>(sampleStock);
-  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "" });
-  
+  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", minStock: "" });
   const [meetings, setMeetings] = useState<Meeting[]>(sampleMeetings);
   const [meetingForm, setMeetingForm] = useState({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" });
   const [maintItems, setMaintItems] = useState<MaintenanceItem[]>(sampleMaintenance);
   const [maintForm, setMaintForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending" as TaskStatus, notes: "" });
 
-  // ✅ PERSISTENCE: Load session & data per user on mount
-  useEffect(() => {
-    const savedUser = localStorage.getItem('btice_user');
-    if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setCurrentUser(user);
-      setTheme(JSON.parse(localStorage.getItem('btice_theme') || '"light"'));
-      setLang(JSON.parse(localStorage.getItem('btice_lang') || '"id"'));
-      const savedLogo = localStorage.getItem(`btice_logo_${user.name}`);
-      if (savedLogo) setLogoUrl(savedLogo);
+  const [scheduleItems, setScheduleItems] = useState<ScheduleEntry[]>([]);
+  const [scheduleForm, setScheduleForm] = useState({ equipment: "", date: new Date().toISOString().slice(0,10), responsible: "", status: "Pending" as TaskStatus, notes: "" });
+  const [activityLogs, setActivityLogs] = useState<LogEntry[]>([]);
 
-      const dataKey = `btice_data_${user.name}`;
-      const savedData = localStorage.getItem(dataKey);
-      if (savedData) {
-        const d = JSON.parse(savedData);
-        setTasks(d.tasks || sampleTasks);
-        setStockItems(d.stock || sampleStock);
-        setMeetings(d.meetings || sampleMeetings);
-        setMaintItems(d.maintenance || sampleMaintenance);
+  const addLog = (type: string, action: string) => {
+    const entry: LogEntry = { id: String(Date.now()), type, action, timestamp: new Date().toISOString() };
+    setActivityLogs(prev => [entry, ...prev].slice(0, 150));
+  };
+
+  // ✅ Handle Upload Logo
+  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          const base64 = ev.target.result as string;
+          setUserLogo(base64);
+          localStorage.setItem('btice_app_logo', base64);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // ✅ Auto-login & Data Load
+  useEffect(() => {
+    try {
+      // Load Logo First
+      const savedLogo = localStorage.getItem('btice_app_logo');
+      if (savedLogo) setUserLogo(savedLogo);
+
+      const storedSession = localStorage.getItem("userSession");
+      if (storedSession) {
+        const session: UserSession = JSON.parse(storedSession);
+        if (session.isLoggedIn && session.username) {
+          const savedUser = localStorage.getItem(`btice_user_${session.username}`);
+          if (savedUser) {
+            setCurrentUser(JSON.parse(savedUser));
+            const savedTheme = localStorage.getItem(`btice_theme_${session.username}`);
+            if (savedTheme) setTheme(JSON.parse(savedTheme));
+            const savedLang = localStorage.getItem(`btice_lang_${session.username}`);
+            if (savedLang) setLang(JSON.parse(savedLang));
+            const savedData = localStorage.getItem(`btice_data_${session.username}`);
+            if (savedData) {
+              const d = JSON.parse(savedData);
+              setTasks(d.tasks || sampleTasks);
+              setStockItems(d.stock || sampleStock);
+              setMeetings(d.meetings || sampleMeetings);
+              setMaintItems(d.maintenance || sampleMaintenance);
+              setScheduleItems(d.schedule || []);
+              setActivityLogs(d.logs || []);
+            }
+          }
+        }
       }
+    } catch (error) {
+      console.error("Session validation failed", error);
+      localStorage.removeItem("userSession");
     }
   }, []);
 
-  // ✅ PERSISTENCE: Save session & data whenever changes
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('btice_user', JSON.stringify(currentUser));
-      localStorage.setItem('btice_theme', JSON.stringify(theme));
-      localStorage.setItem('btice_lang', JSON.stringify(lang));
-      if (logoUrl) localStorage.setItem(`btice_logo_${currentUser.name}`, logoUrl);
-      const dataKey = `btice_data_${currentUser.name}`;
-      localStorage.setItem(dataKey, JSON.stringify({ tasks, stock: stockItems, meetings, maintenance: maintItems }));
+      localStorage.setItem(`btice_theme_${currentUser.name}`, JSON.stringify(theme));
+      localStorage.setItem(`btice_lang_${currentUser.name}`, JSON.stringify(lang));
+      localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks, stock: stockItems, meetings, maintenance: maintItems, schedule: scheduleItems, logs: activityLogs }));
     }
-  }, [currentUser, theme, lang, logoUrl, tasks, stockItems, meetings, maintItems]);
+  }, [currentUser, theme, lang, tasks, stockItems, meetings, maintItems, scheduleItems, activityLogs]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('btice_user');
-    setCurrentUser(null);
+  const handleLogin = (user: CurrentUser) => {
+    const session: UserSession = {
+      id: String(Date.now()),
+      username: user.name,
+      role: user.roleTitle,
+      isLoggedIn: true
+    };
+    localStorage.setItem("userSession", JSON.stringify(session));
+    localStorage.setItem(`btice_user_${user.name}`, JSON.stringify(user));
+    setCurrentUser(user);
+    setTaskForm((prev) => ({ ...prev, assignee: user.permissionRole === "Staff" ? user.name : prev.assignee }));
   };
 
-  if (!currentUser) return <LoginScreen colors={colors} t={t} onLogin={u => { setCurrentUser(u); setTaskForm(p => ({ ...p, assignee: u.permissionRole === "Staff" ? u.name : p.assignee })); }} />;
+  const handleLogout = () => {
+    localStorage.removeItem("userSession");
+    setCurrentUser(null);
+    setTheme("light");
+    setLang("id");
+    setActiveTab("dashboard");
+    setMenuOpen(false);
+  };
+
+  if (!currentUser) {
+    return <LoginScreen colors={colors} t={t} onLogin={handleLogin} />;
+  }
 
   const filtered = tasks.filter(tk => {
     const s = !search || tk.title.toLowerCase().includes(search.toLowerCase()) || tk.assignee.toLowerCase().includes(search.toLowerCase());
@@ -243,12 +336,9 @@ export default function App() {
     return s && c && st && p && matchesUser;
   }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
 
-  const stats = {
-    total: filtered.length, completed: filtered.filter(tk => tk.status === "Completed").length,
-    inProgress: filtered.filter(tk => tk.status === "In progress").length, pending: filtered.filter(tk => tk.status === "Pending").length,
-    cancelled: filtered.filter(tk => tk.status === "Cancelled").length,
-  };
+  const stats = { total: filtered.length, completed: filtered.filter(tk => tk.status === "Completed").length, inProgress: filtered.filter(tk => tk.status === "In progress").length, pending: filtered.filter(tk => tk.status === "Pending").length, cancelled: filtered.filter(tk => tk.status === "Cancelled").length };
   const pct = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
+  const remaining = stats.pending + stats.inProgress;
 
   const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -277,6 +367,7 @@ export default function App() {
         }
         if (newTasks.length === 0) { window.alert("Tidak ada data valid ditemukan."); return; }
         setTasks(prev => [...newTasks, ...prev]); setSearch(''); setFilterCat('All'); setFilterStat('All'); setFilterPri('All');
+        addLog("TASK", `Imported ${newTasks.length} tasks via CSV`);
         window.alert(`✅ ${newTasks.length} ${t.csvSuccess}`);
       } catch { window.alert(t.csvError); }
     };
@@ -289,251 +380,425 @@ export default function App() {
   };
 
   const handleSaveTask = () => {
-    if (!taskForm.title?.trim()) { window.alert(t.alertTitleRequired); return; }
-    if (!taskForm.assignee?.trim()) { window.alert(t.alertAssigneeRequired); return; }
-    const norm: Task = { id: taskForm.id || String(Date.now()), title: taskForm.title, description: taskForm.description || "", category: taskForm.category || "Production", priority: (taskForm.priority || "Medium") as Priority, assignee: taskForm.assignee, deadline: taskForm.deadline || new Date().toISOString().slice(0, 10), status: (taskForm.status || "Pending") as TaskStatus, notes: taskForm.notes || "", createdAt: taskForm.createdAt || new Date().toISOString().slice(0, 10), createdByRole: taskForm.createdByRole || currentUser.permissionRole, startTime: taskForm.startTime, endTime: taskForm.endTime, reason: taskForm.reason || "", imageUrl: taskForm.imageUrl || "" };
-    setTasks(prev => { const exists = prev.some(i => i.id === norm.id); return exists ? prev.map(i => i.id === norm.id ? norm : i) : [norm, ...prev]; });
-    setTaskForm({ title: "", description: "", category: "Production", priority: "Medium", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
+    if (!taskForm.title?.trim() || !taskForm.assignee?.trim()) return;
+    setTasks(prev => [{ id: String(Date.now()), ...taskForm, createdAt: new Date().toISOString().slice(0, 10), createdByRole: currentUser.permissionRole } as Task, ...prev]);
+    addLog("TASK", `Created task: ${taskForm.title}`);
+    setTaskForm({ title: "", description: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   };
 
+  const handleInlineEdit = (taskId: string) => { const task = tasks.find(tk => tk.id === taskId); if (task) { setEditingTaskId(taskId); setEditForm(task); } };
+  const saveEdit = () => { 
+    if (editingTaskId) { 
+      setTasks(prev => prev.map(tk => tk.id === editingTaskId ? { ...tk, ...editForm } : tk)); 
+      addLog("TASK", `Updated task: ${editForm.title || tasks.find(t=>t.id===editingTaskId)?.title}`);
+      setEditingTaskId(null); 
+    } 
+  };
+  const toggleStatus = (taskId: string) => { 
+    setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, status: tk.status === "Completed" ? "In progress" : "Completed" } : tk)); 
+    const newStatus = tasks.find(t=>t.id===taskId)?.status === "Completed" ? "In progress" : "Completed";
+    addLog("TASK", `Changed status to ${newStatus}`);
+  };
+
+  const shareWhatsApp = () => {
+    const assigned = stats.total;
+    const completedCount = stats.completed;
+    const pendingCount = remaining;
+    const rate = assigned ? Math.round((completedCount / assigned) * 100) : 0;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const completedLines = tasks.filter(tk => tk.status === "Completed").map(tk => `• ${tk.title}\n   🕒 ${formatTimeRange(tk)}`).join("\n") || "-";
+    const pendingLines = tasks.filter(tk => tk.status !== "Completed" && tk.status !== "Cancelled").map(tk => `• ${tk.title}${tk.reason ? `\nReason: ${tk.reason}` : ""}`).join("\n") || "-";
+    const notes = "Overall performance is good.\nAll critical tasks were completed.\nPending maintenance will be completed on the next shift.";
+    const reportLink = `https://your-domain.com/report/${now.toISOString().split("T")[0]}/${encodeURIComponent(currentUser.name.toLowerCase().replace(/\s+/g, "-"))}`;
+    const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser.name.toUpperCase()}\n💼 Role : ${currentUser.roleTitle}\n🕒 Shift : ${currentUser.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n📊 TASK SUMMARY\n📌 Assigned : ${assigned}\n✅ Completed : ${completedCount}\n⏳ Pending : ${pendingCount}\n📈 Completion Rate : ${rate}%\n\n━━━━━━━━━━━━━━━━━━\n\n✅ COMPLETED TASKS\n${completedLines}\n\n━━━━━━━━━━━━━━━━━━\n\n⏳ PENDING TASKS\n${pendingLines}\n\n━━━━━━━━━━━━━━━━━━\n\n📝 NOTES\n${notes}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View the complete report and task details:\n${reportLink}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+  };
+
+  const menuItems = [
+    { id: "dashboard" as Tab, label: t.dashboard },
+    { id: "tasks" as Tab, label: t.tasks },
+    { id: "schedule" as Tab, label: t.schedule },
+    { id: "stock" as Tab, label: t.stock },
+    { id: "meeting" as Tab, label: t.meeting },
+    { id: "maintenance" as Tab, label: t.maintenance },
+    { id: "activity_log" as Tab, label: t.activityLog },
+  ];
+
+  const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, fontSize: 13, boxSizing: "border-box", touchAction: "manipulation" };
+  const btnStyle = (variant: "primary" | "secondary" | "danger" = "primary") => ({ padding: "8px 12px", borderRadius: 8, border: variant === "primary" ? "none" : `1px solid ${colors.border}`, background: variant === "primary" ? colors.accent : variant === "danger" ? `${colors.danger}20` : "transparent", color: variant === "primary" ? "#FFF" : variant === "danger" ? colors.danger : colors.text, fontSize: 13, cursor: "pointer", fontWeight: 500, touchAction: "manipulation" as const });
+
   return (
-    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: 16, transition: "background 0.2s, color 0.2s" }}>
+    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", display: "flex", position: "relative" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
-        .grid-main { display: grid; gap: 16px; }
-        @media (max-width: 768px) {
-          .grid-main { grid-template-columns: 1fr !important; }
-          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .header-row { flex-direction: column; align-items: flex-start !important; gap: 12px !important; }
-          .nav-select { width: 100% !important; max-width: 100% !important; }
-          .task-actions { flex-direction: column !important; width: 100%; }
-          .form-grid { grid-template-columns: 1fr !important; }
-          .stock-form-grid { grid-template-columns: 1fr !important; }
-        }
+        .hamburger-btn { background: none; border: none; font-size: 28px; color: ${colors.text}; cursor: pointer; padding: 8px; display: flex; align-items: center; justify-content: center; }
+        .nav-overlay { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; max-width: 75%; background: ${theme === "light" ? "#0F172A" : "#0B1120"}; z-index: 60; transform: translateX(-100%); transition: transform 0.3s ease; display: flex; flex-direction: column; box-shadow: 2px 0 15px rgba(0,0,0,0.3); }
+        .nav-overlay.open { transform: translateX(0); }
+        .nav-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .nav-list { padding: 20px 0; display: grid; gap: 8px; overflow-y: auto; }
+        .nav-item { padding: 14px 24px; color: #94A3B8; cursor: pointer; font-size: 18px; font-weight: 500; transition: all 0.2s; border-left: 4px solid transparent; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: #E2E8F0; }
+        .nav-item.active { background: rgba(14,165,233,0.15); color: #0EA5E9; border-left-color: #0EA5E9; }
+        .nav-footer { padding: 20px; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); }
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; min-height: 100vh; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+        .stat-value { font-size: 24px; font-weight: 700; color: ${colors.text}; }
+        .stat-label { font-size: 12px; color: ${colors.muted}; }
+        .progress-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+        .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .progress-title { font-size: 16px; font-weight: 600; }
+        .progress-pct { background: ${colors.accentBg}; color: ${colors.accent}; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .progress-bar { height: 8px; background: ${colors.cardMuted}; border-radius: 999px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, ${colors.accent}, ${colors.accent}80); border-radius: 999px; transition: width 0.5s ease; }
+        .progress-text { font-size: 12px; color: ${colors.muted}; margin-top: 8px; }
+        .task-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; margin-bottom: 12px; transition: border-color 0.2s; }
+        .task-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .task-title { font-size: 15px; font-weight: 600; color: ${colors.text}; }
+        .task-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+        .task-meta { font-size: 12px; color: ${colors.muted}; margin-bottom: 10px; }
+        .task-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+        @media (min-width: 768px) { .page-title { font-size: 28px; } }
+        input[type="date"], input[type="time"], select { color-scheme: ${theme}; }
         input[type="number"] { -moz-appearance: textfield; }
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       `}</style>
 
-      <div style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gap: 16 }}>
-        <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, background: colors.card, borderRadius: 12, border: `0.5px solid ${colors.border}`, padding: "14px 16px" }} className="header-row">
+      <div className={`nav-overlay ${isMenuOpen ? "open" : ""}`}>
+        <div className="nav-header">
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#FFF" }}>Menu</div>
+          <button onClick={() => setMenuOpen(false)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 28, cursor: "pointer" }}>×</button>
+        </div>
+        <nav className="nav-list">
+          {menuItems.map(item => (
+            <div key={item.id} className={`nav-item ${activeTab === item.id ? "active" : ""}`} onClick={() => { setActiveTab(item.id); setMenuOpen(false); }}>
+              {item.label}
+            </div>
+          ))}
+        </nav>
+        <div className="nav-footer">
+          <div style={{ fontSize: 14, color: "#FFF", fontWeight: 600 }}>{currentUser.name}</div>
+          <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 12 }}>{currentUser.roleTitle}</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setLang(l => l === "id" ? "en" : "id")} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#FFF", cursor: "pointer" }}>{lang === "id" ? "Bahasa Indonesia" : "English"}</button>
+            <button onClick={() => setTheme(th => th === "light" ? "dark" : "light")} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#FFF", cursor: "pointer" }}>{theme === "light" ? t.darkMode : t.lightMode}</button>
+            <button onClick={handleLogout} style={{ padding: "10px", borderRadius: 8, border: "none", background: "#EF4444", color: "#FFF", cursor: "pointer", width: "40px" }}>{t.logout}</button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100%" }}>
+        {/* ✅ HEADER FIXED: Left (Hamburger + Logo), Center (Title + Subtitle), Right (Share) */}
+        <header style={{ display: "flex", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${colors.border}`, position: "relative" }}>
+          {/* LEFT: Hamburger + Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ position: "relative" }}>
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: colors.accentBg, color: colors.accent, display: "grid", placeItems: "center", fontSize: 18, fontWeight: 600, overflow: "hidden" }}>
-                {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🧊"}
-              </div>
-              <label title={t.logoUpload} style={{ position: "absolute", bottom: -3, right: -3, width: 18, height: 18, borderRadius: "50%", background: colors.accent, color: "#fff", display: "grid", placeItems: "center", fontSize: 11, cursor: "pointer", border: `2px solid ${colors.card}` }}>
-                + <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if(f){const r=new FileReader();r.onload=()=>setLogoUrl(r.result as string);r.readAsDataURL(f)}}} style={{ display: "none" }} />
+            <button className="hamburger-btn" onClick={() => setMenuOpen(true)}>☰</button>
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <img 
+                src={userLogo || DEFAULT_LOGO} 
+                alt="Logo" 
+                style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} 
+              />
+              {/* Input file tersembunyi untuk upload */}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleLogoUpload} 
+                style={{ display: "none" }} 
+                id="logo-upload" 
+              />
+              <label 
+                htmlFor="logo-upload" 
+                style={{ 
+                  position: "absolute", bottom: -4, right: -4, 
+                  background: colors.accent, color: "#fff", 
+                  fontSize: 10, width: 14, height: 14, borderRadius: "50%", 
+                  display: "grid", placeItems: "center", cursor: "pointer",
+                  border: `2px solid ${colors.card}`
+                }}
+              >
+                +
               </label>
             </div>
-            <div>
-              <div style={{ fontSize: 11, color: colors.muted, letterSpacing: 0.5 }}>{t.subtitle}</div>
-              <div style={{ fontSize: 24, fontFamily: "'Bebas Neue', sans-serif", color: colors.accent, lineHeight: 1 }}>{t.loginTitle}</div>
-            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: colors.muted, fontWeight: 500 }}>{currentUser.name} · {currentUser.roleTitle}</span>
-            <button onClick={() => setLang(l => l === "id" ? "en" : "id")} style={secondaryBtn(colors)}>{lang === "id" ? "EN" : "ID"}</button>
-            <button onClick={() => setTheme(th => th === "light" ? "dark" : "light")} style={secondaryBtn(colors)}>{theme === "light" ? t.darkMode : t.lightMode}</button>
-            <button onClick={handleLogout} style={secondaryBtn(colors)}>{t.logout}</button>
+
+          {/* CENTER: Title & Subtitle */}
+          <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <h1 style={{ fontSize: "2rem", color: "#ADD8E6", fontWeight: 700, margin: 0, lineHeight: 1, whiteSpace: "nowrap", letterSpacing: "0.5px" }}>BLUE TICK ICE</h1>
+            <span style={{ fontSize: "0.85rem", color: colors.muted, fontWeight: 500, marginTop: 2, textTransform: "uppercase", letterSpacing: "1px" }}>Daily Task Operational</span>
           </div>
+
+          {/* RIGHT: Share */}
+          {activeTab !== "schedule" && activeTab !== "activity_log" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), marginLeft: "auto", whiteSpace: "nowrap" }}>Share</button>}
         </header>
 
-        <div className="nav-select">
-          <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as Tab)} style={{ ...fieldStyle(colors), maxWidth: 280, cursor: "pointer", fontWeight: 500 }}>
-            <option value="tasks">{t.tasks}</option><option value="stock">{t.stock}</option><option value="meeting">{t.meeting}</option><option value="maintenance">{t.maintenance}</option>
-          </select>
-        </div>
-
-        <main className="grid-main">
-          {activeTab === "tasks" && <>
-            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1.6fr 1fr" }} className="grid-main">
-              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.progress}</div>
-                <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10, marginBottom: 16 }}>
-                  {[{ l: t.completed, v: stats.completed, c: "#0c4a8c" }, { l: t.inProgress, v: stats.inProgress, c: "#1d4ed8" }, { l: t.pendingTasks, v: stats.pending, c: "#5b6b82" }, { l: t.cancelled, v: stats.cancelled, c: "#a12626" }].map(s => (
-                    <div key={s.l} style={{ background: colors.cardMuted, padding: 10, borderRadius: 8, textAlign: "center" }}>
-                      <div style={{ fontSize: 12, color: colors.muted }}>{s.l}</div><div style={{ fontSize: 20, fontWeight: 600, color: s.c }}>{s.v}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ flex: 1, height: 8, background: colors.cardMuted, borderRadius: 999, overflow: "hidden" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${colors.accent}, ${colors.accent}90)` }} />
+        <main className="main-content">
+          {activeTab === "dashboard" && (
+            <>
+              <div className="stats-grid">
+                {[
+                  { label: t.total, value: stats.total, color: colors.accent },
+                  { label: t.completed, value: stats.completed, color: colors.success },
+                  { label: t.remaining, value: remaining, color: colors.warning },
+                  { label: t.cancelled, value: stats.cancelled, color: colors.danger },
+                ].map((s, i) => (
+                  <div className="stat-card" key={i}>
+                    <div className="stat-value">{s.value}</div>
+                    <div className="stat-label">{s.label}</div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{t.completionRate}: {pct}%</div>
+                ))}
+              </div>
+              <div className="progress-card">
+                <div className="progress-header">
+                  <div className="progress-title">{t.progress}</div>
+                  <div className="progress-pct">{pct}%</div>
                 </div>
+                <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+                <div className="progress-text">{stats.completed} of {stats.total} tasks completed</div>
               </div>
-              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                <span style={{ fontSize: 13, color: colors.muted }}>{t.shareDescription}</span>
-                <button onClick={() => {
-                  const lines = ["📋 DAILY REPORT", `👤 ${currentUser.name}`, `📊 Done: ${stats.completed}/${stats.total} (${pct}%)`, "━━━━━━━━━", ...filtered.filter(tk => tk.status === "Completed").map(tk => `✅ ${tk.title}`), ...filtered.filter(tk => tk.status !== "Completed").map(tk => `⏳ ${tk.title}`)].join("\n");
-                  window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
-                }} style={primaryBtn(colors)}>Share WA</button>
-              </div>
-            </div>
+            </>
+          )}
 
-            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }} className="grid-main">
-              <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-                <div className="form-grid" style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", marginBottom: 14 }}>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.searchPlaceholder} style={{ ...fieldStyle(colors), gridColumn: "span 2" }} />
-                  <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>{t.all}</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
-                  <select value={filterStat} onChange={e => setFilterStat(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>{t.all}</option>{statuses.map(s => <option key={s}>{s}</option>)}</select>
-                  <select value={filterPri} onChange={e => setFilterPri(e.target.value)} style={{ ...fieldStyle(colors), cursor: "pointer" }}><option>{t.all}</option>{priorities.map(p => <option key={p}>{p}</option>)}</select>
+          {activeTab === "tasks" && (
+            <>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Today's Tasks</div>
+                <div style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input style={{ ...inputStyle, flex: 1, minWidth: "120px" }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks..." />
+                  <select style={{ ...inputStyle, width: "auto" }} value={filterCat} onChange={e => setFilterCat(e.target.value)}><option value="All">All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
+                  <select style={{ ...inputStyle, width: "auto" }} value={filterStat} onChange={e => setFilterStat(e.target.value)}><option value="All">All Status</option>{statuses.map(s => <option key={s}>{s}</option>)}</select>
                 </div>
-                <div style={{ display: "grid", gap: 12 }}>
-                  {filtered.map(tk => {
-                    const badge = statusStyles[tk.status];
+                {filtered.length === 0 ? <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noTasks}</div> : (
+                  filtered.map(tk => {
+                    const isEditing = editingTaskId === tk.id;
+                    const badge = statusColors[tk.status];
                     return (
-                      <div key={tk.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                          <div><div style={{ fontSize: 15, fontWeight: 600 }}>{tk.title}</div><div style={{ color: colors.muted, marginTop: 4, fontSize: 13 }}>{tk.category} · {tk.priority} · {tk.assignee}</div></div>
-                          <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500, height: "fit-content" }}>{tk.status}</span>
+                      <div className="task-card" key={tk.id}>
+                        {isEditing ? (
+                          <div className="form-grid">
+                            <input style={inputStyle} value={editForm.title || ""} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
+                            <input style={inputStyle} type="time" value={editForm.startTime || ""} onChange={e => setEditForm(p => ({ ...p, startTime: e.target.value }))} />
+                            <input style={inputStyle} type="time" value={editForm.endTime || ""} onChange={e => setEditForm(p => ({ ...p, endTime: e.target.value }))} />
+                            <select style={inputStyle} value={editForm.status || tk.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                            <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}><button style={btnStyle("primary")} onClick={saveEdit}>{t.save}</button><button style={btnStyle("secondary")} onClick={() => setEditingTaskId(null)}>{t.cancel}</button></div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="task-header">
+                              <div className="task-title">{tk.title}</div>
+                              <span className="task-badge" style={{ background: badge.bg, color: badge.text }}>{tk.status}</span>
+                            </div>
+                            <div className="task-meta">{tk.category} · {tk.priority} · {tk.assignee} · {formatTimeRange(tk)}</div>
+                            <div className="task-actions">
+                              <button style={btnStyle(tk.status === "Completed" ? "secondary" : "primary")} onClick={() => toggleStatus(tk.id)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
+                              <button style={btnStyle("secondary")} onClick={() => handleInlineEdit(tk.id)}>{t.edit}</button>
+                              <input id={`file-${tk.id}`} type="file" accept="image/*" onChange={e => handleTaskPhotoUpload(e, tk.id)} style={{ display: "none" }} />
+                              <button style={btnStyle("secondary")} onClick={() => (document.getElementById(`file-${tk.id}`) as HTMLInputElement)?.click()}>{t.uploadPhoto}</button>
+                              <button style={btnStyle("danger")} onClick={() => setTasks(p => p.filter(i => i.id !== tk.id))}>{t.delete}</button>
+                            </div>
+                            <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 10 }} value={tk.notes} onChange={e => setTasks(p => p.map(i => i.id === tk.id ? { ...i, notes: e.target.value } : i))} placeholder={t.notesPlaceholder} />
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.addTask}</div>
+                <div className="form-grid">
+                  <input style={inputStyle} value={taskForm.title || ""} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
+                  <input style={inputStyle} value={taskForm.assignee || ""} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} disabled={currentUser.permissionRole === "Staff"} />
+                  <select style={inputStyle} value={taskForm.category || "Production"} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                  <select style={inputStyle} value={taskForm.priority || "High"} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value as Priority }))}>{priorities.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                  <input style={inputStyle} type="date" value={taskForm.deadline || ""} onChange={e => setTaskForm(p => ({ ...p, deadline: e.target.value }))} />
+                  <input style={inputStyle} type="time" value={taskForm.startTime || ""} onChange={e => setTaskForm(p => ({ ...p, startTime: e.target.value }))} />
+                  <input style={inputStyle} type="time" value={taskForm.endTime || ""} onChange={e => setTaskForm(p => ({ ...p, endTime: e.target.value }))} />
+                </div>
+                <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                  <input id="upload-form" type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if(f){const r=new FileReader();r.onload=()=>setTaskForm(p=>({...p,imageUrl:r.result as string}));r.readAsDataURL(f)}}} style={{ display: "none" }} />
+                  <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={() => (document.getElementById("upload-form") as HTMLInputElement)?.click()}>{t.uploadPhoto}</button>
+                  <label style={{ ...btnStyle("secondary"), flex: 1, display: "grid", placeItems: "center" }}><input type="file" accept=".csv" onChange={handleCsvUpload} style={{ display: "none" }} />{t.importCsv}</label>
+                </div>
+                <button style={{ ...btnStyle("primary"), width: "100%", padding: "10px 0", fontSize: 14 }} onClick={handleSaveTask}>{t.addTask}</button>
+              </div>
+            </>
+          )}
+
+          {activeTab === "schedule" && (
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.schedule}</div>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {scheduleItems.map(s => {
+                    const badge = statusColors[s.status];
+                    return (
+                      <div key={s.id} className="task-card">
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                          <div style={{ fontSize: 15, fontWeight: 600 }}>{s.equipment}</div>
+                          <span className="task-badge" style={{ background: badge.bg, color: badge.text }}>{s.status}</span>
                         </div>
-                        {tk.imageUrl && <img src={tk.imageUrl} alt="Task" style={{ maxWidth: 120, marginTop: 10, borderRadius: 6, objectFit: "cover" }} />}
-                        <div style={{ marginTop: 10, color: colors.muted, fontSize: 13 }}>{tk.description}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10, fontSize: 12, color: colors.muted }}>
-                          <span>{t.deadline}: {formatDate(tk.deadline)}</span><span>{t.time}: {formatTimeRange(tk)}</span>
-                        </div>
-                        <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }} className="task-actions">
-                          <button onClick={() => setTasks(p => p.map(i => i.id === tk.id ? { ...i, status: i.status === "Completed" ? "In progress" : "Completed" } : i))} style={primaryBtn(colors)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
-                          <button onClick={() => setTaskForm(tk)} style={secondaryBtn(colors)}>{t.edit}</button>
-                          <input id={`file-upload-${tk.id}`} type="file" accept="image/*" onChange={(e) => handleTaskPhotoUpload(e, tk.id)} style={{ display: "none" }} />
-                          <button onClick={() => (document.getElementById(`file-upload-${tk.id}`) as HTMLInputElement)?.click()} style={secondaryBtn(colors)}>{t.uploadPhoto}</button>
-                          <button onClick={() => setTasks(p => p.filter(i => i.id !== tk.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger }}>{t.delete}</button>
-                        </div>
-                        <textarea value={tk.notes} onChange={e => setTasks(p => p.map(i => i.id === tk.id ? { ...i, notes: e.target.value } : i))} placeholder={t.addNote} style={{ ...fieldStyle(colors), minHeight: 50, resize: "vertical", marginTop: 10, background: colors.card }} />
+                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{formatDate(s.date)} · {t.responsible}: {s.responsible}</div>
+                        {s.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{s.notes}</div>}
+                        <button style={{ ...btnStyle("danger"), marginTop: 10 }} onClick={() => { setScheduleItems(p => p.filter(x => x.id !== s.id)); addLog("SCHEDULE", `Deleted schedule: ${s.equipment}`); }}>{t.delete}</button>
                       </div>
                     );
                   })}
-                  {filtered.length === 0 && <div style={{ padding: "20px 0", color: colors.muted, textAlign: "center" }}>{t.noTasks}</div>}
+                  {scheduleItems.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMaint}</div>}
                 </div>
               </div>
-
-              <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 12, height: "fit-content" }}>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{t.taskFormTitle}</div>
-                <div style={{ color: colors.muted, fontSize: 12, marginTop: -8 }}>{t.adminStaffNote}</div>
-                <input value={taskForm.title} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} style={fieldStyle(colors)} />
-                <textarea value={taskForm.description} onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))} placeholder={t.descriptionPlaceholder} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-                <select value={taskForm.category} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{categories.map(c => <option key={c}>{c}</option>)}</select>
-                <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value as Priority }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{priorities.map(p => <option key={p}>{p}</option>)}</select>
-                <input value={taskForm.assignee} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} style={fieldStyle(colors)} disabled={currentUser.permissionRole === "Staff"} />
-                <input value={taskForm.deadline} onChange={e => setTaskForm(p => ({ ...p, deadline: e.target.value }))} type="date" style={{ ...fieldStyle(colors), cursor: "pointer" }} />
-                <select value={taskForm.status} onChange={e => setTaskForm(p => ({ ...p, status: e.target.value as TaskStatus }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{statuses.map(s => <option key={s}>{s}</option>)}</select>
-                <textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-                <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <input type="time" value={taskForm.startTime || ""} onChange={e => setTaskForm(p => ({ ...p, startTime: e.target.value }))} style={fieldStyle(colors)} />
-                  <input type="time" value={taskForm.endTime || ""} onChange={e => setTaskForm(p => ({ ...p, endTime: e.target.value }))} style={fieldStyle(colors)} />
-                </div>
-                <textarea value={taskForm.reason} onChange={e => setTaskForm(p => ({ ...p, reason: e.target.value }))} placeholder={t.reasonPlaceholder} style={{ ...fieldStyle(colors), minHeight: 50, resize: "vertical" }} />
-                <div style={{ display: "flex", gap: 10 }}>
-                  <input id="upload-task-form" type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if(f){const r=new FileReader();r.onload=()=>setTaskForm(p=>({...p,imageUrl:r.result as string}));r.readAsDataURL(f)}}} style={{ display: "none" }} />
-                  <label style={{ ...secondaryBtn(colors), cursor: "pointer", flex: 1, display: "grid", placeItems: "center" }}><span onClick={() => (document.getElementById("upload-task-form") as HTMLInputElement)?.click()}>{t.uploadPhoto}</span></label>
-                  <label style={{ ...secondaryBtn(colors), cursor: "pointer", flex: 1, display: "grid", placeItems: "center" }}><input type="file" accept=".csv" onChange={handleCsvUpload} style={{ display: "none" }} />{t.importCsv}</label>
-                </div>
-                <button onClick={handleSaveTask} style={primaryBtn(colors)}>{taskForm.id ? t.saveChanges : t.addTask}</button>
-              </aside>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.addSchedule}</div>
+                <input style={inputStyle} value={scheduleForm.equipment} onChange={e => setScheduleForm(p => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} />
+                <input style={inputStyle} value={scheduleForm.responsible} onChange={e => setScheduleForm(p => ({ ...p, responsible: e.target.value }))} placeholder={t.responsible} />
+                <input style={inputStyle} value={scheduleForm.date} onChange={e => setScheduleForm(p => ({ ...p, date: e.target.value }))} type="date" />
+                <select style={inputStyle} value={scheduleForm.status} onChange={e => setScheduleForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 10 }} value={scheduleForm.notes} onChange={e => setScheduleForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { 
+                  if (!scheduleForm.equipment.trim() || !scheduleForm.responsible.trim()) { window.alert(t.alertTitleRequired); return; }
+                  setScheduleItems(p => [{ id: String(Date.now()), ...scheduleForm }, ...p]);
+                  addLog("SCHEDULE", `Created schedule: ${scheduleForm.equipment}`);
+                  setScheduleForm({ equipment: "", date: new Date().toISOString().slice(0,10), responsible: "", status: "Pending", notes: "" });
+                }}>{t.addSchedule}</button>
+              </div>
             </div>
-          </>}
+          )}
 
-          {activeTab === "stock" && <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }} className="grid-main">
-            <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.stockTitle}</div>
-              <div style={{ display: "grid", gap: 12 }}>
-                {stockItems.map(s => {
-                  const remain = s.stock - s.keluar + s.masuk;
-                  return (
-                    <div key={s.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                        <div><div style={{ fontSize: 15, fontWeight: 600 }}>{s.item}</div><div style={{ fontSize: 12, color: colors.muted }}>{t.updateLast}: {formatDate(s.updatedAt)}</div></div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: colors.accent }}>{t.currentStock}: {remain} {s.unit}</div>
+          {activeTab === "activity_log" && (
+            <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.activityLog}</div>
+              {activityLogs.length === 0 ? <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noLogs}</div> : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {activityLogs.map(log => (
+                    <div key={log.id} className="task-card" style={{ padding: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ fontWeight: 600, color: colors.accent }}>{log.type}</span>
+                        <span style={{ fontSize: 11, color: colors.muted }}>{formatDateTime(log.timestamp)}</span>
                       </div>
-                      {s.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>{s.notes}</div>}
-                      <button onClick={() => setStockItems(p => p.filter(i => i.id !== s.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger, marginTop: 12 }}>{t.deleteItem}</button>
+                      <div style={{ fontSize: 13, color: colors.text }}>{log.action}</div>
                     </div>
-                  );
-                })}
-                {stockItems.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noStock}</div>}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 12, height: "fit-content" }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{t.addNewItem}</div>
-              <input value={stockForm.item} onChange={e => setStockForm(p => ({ ...p, item: e.target.value }))} placeholder={t.itemName} style={fieldStyle(colors)} />
-              <div className="stock-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                <input value={stockForm.stock} onChange={e => setStockForm(p => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" inputMode="numeric" style={fieldStyle(colors)} />
-                <input value={stockForm.masuk} onChange={e => setStockForm(p => ({ ...p, masuk: e.target.value }))} placeholder={t.incoming} type="number" inputMode="numeric" style={fieldStyle(colors)} />
-                <input value={stockForm.keluar} onChange={e => setStockForm(p => ({ ...p, keluar: e.target.value }))} placeholder={t.outgoing} type="number" inputMode="numeric" style={fieldStyle(colors)} />
-              </div>
-              <input value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))} placeholder="Unit (pcs/kg/dll)" style={fieldStyle(colors)} />
-              <textarea value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-              <button onClick={() => {
-                if (!stockForm.item.trim()) { window.alert(t.alertTitleRequired); return; }
-                setStockItems(p => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, masuk: Number(stockForm.masuk) || 0, keluar: Number(stockForm.keluar) || 0, notes: stockForm.notes, updatedAt: new Date().toISOString().slice(0, 10) }, ...p]);
-                setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "" });
-              }} style={primaryBtn(colors)}>{t.addNewItem}</button>
-            </aside>
-          </div>}
+          )}
 
-          {activeTab === "meeting" && <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }} className="grid-main">
-            <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.meetingTitle}</div>
-              <div style={{ display: "grid", gap: 12 }}>
-                {meetings.map(m => (
-                  <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>{m.title}</div>
-                    <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{formatDate(m.date)} · {m.time || "-"}</div>
-                    <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{t.attendees}: {m.attendees || "-"}</div>
-                    {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
-                    <button onClick={() => setMeetings(p => p.filter(x => x.id !== m.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger, marginTop: 10 }}>{t.delete}</button>
-                  </div>
-                ))}
-                {meetings.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMeeting}</div>}
-              </div>
-            </div>
-            <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 12, height: "fit-content" }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{t.scheduleMeeting}</div>
-              <input value={meetingForm.title} onChange={e => setMeetingForm(p => ({ ...p, title: e.target.value }))} placeholder={t.meetingName} style={fieldStyle(colors)} />
-              <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <input value={meetingForm.date} onChange={e => setMeetingForm(p => ({ ...p, date: e.target.value }))} type="date" style={fieldStyle(colors)} />
-                <input value={meetingForm.time} onChange={e => setMeetingForm(p => ({ ...p, time: e.target.value }))} type="time" style={fieldStyle(colors)} />
-              </div>
-              <input value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} style={fieldStyle(colors)} />
-              <textarea value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-              <button onClick={() => { if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; } setMeetings(p => [{ id: String(Date.now()), ...meetingForm }, ...p]); setMeetingForm({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" }); }} style={primaryBtn(colors)}>{t.addMeeting}</button>
-            </aside>
-          </div>}
-
-          {activeTab === "maintenance" && <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }} className="grid-main">
-            <div style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}` }}>
-              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.maintTitle}</div>
-              <div style={{ display: "grid", gap: 12 }}>
-                {maintItems.map(m => {
-                  const badge = statusStyles[m.status];
-                  return (
-                    <div key={m.id} style={{ borderRadius: 10, border: `0.5px solid ${colors.border}`, padding: 14, background: colors.cardMuted }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                        <div style={{ fontSize: 15, fontWeight: 600 }}>{m.equipment}</div>
-                        <span style={{ color: badge.text, background: badge.bg, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 500 }}>{m.status}</span>
+          {activeTab === "stock" && (
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.stock}</div>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {stockItems.map(s => {
+                    const current = s.stock - s.keluar + s.masuk;
+                    const isLow = current <= (s.minStock || 0);
+                    return (
+                      <div key={s.id} className="task-card" style={{ borderColor: isLow ? colors.danger : colors.border, background: isLow ? `${colors.danger}10` : colors.cardMuted }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 15, fontWeight: 600 }}>{s.item}</span>
+                              {isLow && <span style={{ background: colors.danger, color: "#FFF", fontSize: 10, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>{t.lowStock}</span>}
+                            </div>
+                            <div style={{ fontSize: 12, color: colors.muted }}>{t.updateLast}: {formatDate(s.updatedAt)}</div>
+                          </div>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: isLow ? colors.danger : colors.accent }}>{t.currentStock}: {current} {s.unit}</div>
+                        </div>
+                        {s.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>{s.notes}</div>}
+                        <button style={{ ...btnStyle("danger"), marginTop: 12 }} onClick={() => { setStockItems(p => p.filter(i => i.id !== s.id)); addLog("STOCK", `Deleted item: ${s.item}`); }}>{t.deleteItem}</button>
                       </div>
-                      <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.issue}</div>
-                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{t.techName}: {m.technician || "-"} · {formatDate(m.date)}</div>
+                    );
+                  })}
+                  {stockItems.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noStock}</div>}
+                </div>
+              </div>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.addNewItem}</div>
+                <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+                  <input style={inputStyle} value={stockForm.stock} onChange={e => setStockForm(p => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" inputMode="numeric" />
+                  <input style={inputStyle} value={stockForm.masuk} onChange={e => setStockForm(p => ({ ...p, masuk: e.target.value }))} placeholder={t.incoming} type="number" inputMode="numeric" />
+                  <input style={inputStyle} value={stockForm.keluar} onChange={e => setStockForm(p => ({ ...p, keluar: e.target.value }))} placeholder={t.outgoing} type="number" inputMode="numeric" />
+                </div>
+                <input style={inputStyle} value={stockForm.minStock} onChange={e => setStockForm(p => ({ ...p, minStock: e.target.value }))} placeholder={t.minStock} type="number" inputMode="numeric" />
+                <input style={inputStyle} value={stockForm.item} onChange={e => setStockForm(p => ({ ...p, item: e.target.value }))} placeholder={t.itemName} />
+                <input style={inputStyle} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))} placeholder="Unit (pcs/kg)" />
+                <textarea style={{ ...inputStyle, minHeight: 60, marginTop: 10 }} value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { 
+                  if (!stockForm.item.trim()) { window.alert(t.alertTitleRequired); return; } 
+                  setStockItems(p => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, masuk: Number(stockForm.masuk) || 0, keluar: Number(stockForm.keluar) || 0, notes: stockForm.notes, updatedAt: new Date().toISOString().slice(0, 10), minStock: Number(stockForm.minStock) || 0 }, ...p]); 
+                  addLog("STOCK", `Added item: ${stockForm.item}`);
+                  setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", minStock: "" }); 
+                }}>{t.addNewItem}</button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "meeting" && (
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.meeting}</div>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {meetings.map(m => (
+                    <div key={m.id} className="task-card">
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>{m.title}</div>
+                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{formatDate(m.date)} · {m.time || "-"}</div>
+                      <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{t.attendeesInput}: {m.attendees || "-"}</div>
                       {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
-                      <button onClick={() => setMaintItems(p => p.filter(x => x.id !== m.id))} style={{ ...secondaryBtn(colors), color: colors.danger, borderColor: colors.danger, marginTop: 10 }}>{t.delete}</button>
+                      <button style={{ ...btnStyle("danger"), marginTop: 10 }} onClick={() => { setMeetings(p => p.filter(x => x.id !== m.id)); addLog("MEETING", `Deleted meeting: ${m.title}`); }}>{t.delete}</button>
                     </div>
-                  );
-                })}
-                {maintItems.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMaint}</div>}
+                  ))}
+                  {meetings.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMeeting}</div>}
+                </div>
+              </div>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.scheduleMeeting}</div>
+                <input style={inputStyle} value={meetingForm.title} onChange={e => setMeetingForm(p => ({ ...p, title: e.target.value }))} placeholder={t.meetingName} />
+                <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                  <input style={inputStyle} value={meetingForm.date} onChange={e => setMeetingForm(p => ({ ...p, date: e.target.value }))} type="date" />
+                  <input style={inputStyle} value={meetingForm.time} onChange={e => setMeetingForm(p => ({ ...p, time: e.target.value }))} type="time" />
+                </div>
+                <input style={inputStyle} value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} />
+                <textarea style={{ ...inputStyle, minHeight: 60, marginTop: 10 }} value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} />
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; } setMeetings(p => [{ id: String(Date.now()), ...meetingForm }, ...p]); addLog("MEETING", `Created meeting: ${meetingForm.title}`); setMeetingForm({ title: "", date: new Date().toISOString().slice(0, 10), time: "", attendees: "", notes: "" }); }}>{t.addMeeting}</button>
               </div>
             </div>
-            <aside style={{ background: colors.card, borderRadius: 12, padding: 16, border: `0.5px solid ${colors.border}`, display: "grid", gap: 12, height: "fit-content" }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{t.addMaint}</div>
-              <input value={maintForm.equipment} onChange={e => setMaintForm(p => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} style={fieldStyle(colors)} />
-              <textarea value={maintForm.issue} onChange={e => setMaintForm(p => ({ ...p, issue: e.target.value }))} placeholder={t.issueDesc} style={{ ...fieldStyle(colors), minHeight: 60, resize: "vertical" }} />
-              <input value={maintForm.technician} onChange={e => setMaintForm(p => ({ ...p, technician: e.target.value }))} placeholder={t.techName} style={fieldStyle(colors)} />
-              <select value={maintForm.status} onChange={e => setMaintForm(p => ({ ...p, status: e.target.value as TaskStatus }))} style={{ ...fieldStyle(colors), cursor: "pointer" }}>{statuses.map(s => <option key={s}>{s}</option>)}</select>
-              <textarea value={maintForm.notes} onChange={e => setMaintForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} style={{ ...fieldStyle(colors), minHeight: 50, resize: "vertical" }} />
-              <button onClick={() => { if (!maintForm.equipment.trim()) { window.alert(t.alertTitleRequired); return; } setMaintItems(p => [{ id: String(Date.now()), ...maintForm, date: new Date().toISOString().slice(0, 10) }, ...p]); setMaintForm({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" }); }} style={primaryBtn(colors)}>{t.addMaintBtn}</button>
-            </aside>
-          </div>}
+          )}
+
+          {activeTab === "maintenance" && (
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.maintenance}</div>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {maintItems.map(m => {
+                    const badge = statusColors[m.status];
+                    return (
+                      <div key={m.id} className="task-card">
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                          <div style={{ fontSize: 15, fontWeight: 600 }}>{m.equipment}</div>
+                          <span className="task-badge" style={{ background: badge.bg, color: badge.text }}>{m.status}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.issue}</div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{t.techName}: {m.technician || "-"} · {formatDate(m.date)}</div>
+                        {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
+                        <button style={{ ...btnStyle("danger"), marginTop: 10 }} onClick={() => { setMaintItems(p => p.filter(x => x.id !== m.id)); addLog("MAINTENANCE", `Deleted maintenance: ${m.equipment}`); }}>{t.delete}</button>
+                      </div>
+                    );
+                  })}
+                  {maintItems.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMaint}</div>}
+                </div>
+              </div>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.addMaint}</div>
+                <input style={inputStyle} value={maintForm.equipment} onChange={e => setMaintForm(p => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} />
+                <textarea style={{ ...inputStyle, minHeight: 60 }} value={maintForm.issue} onChange={e => setMaintForm(p => ({ ...p, issue: e.target.value }))} placeholder={t.issueDesc} />
+                <input style={inputStyle} value={maintForm.technician} onChange={e => setMaintForm(p => ({ ...p, technician: e.target.value }))} placeholder={t.techName} />
+                <select style={inputStyle} value={maintForm.status} onChange={e => setMaintForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 10 }} value={maintForm.notes} onChange={e => setMaintForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { if (!maintForm.equipment.trim()) { window.alert(t.alertTitleRequired); return; } setMaintItems(p => [{ id: String(Date.now()), ...maintForm, date: new Date().toISOString().slice(0, 10) }, ...p]); addLog("MAINTENANCE", `Created maintenance: ${maintForm.equipment}`); setMaintForm({ equipment: "", issue: "", technician: "", status: "Pending", notes: "" }); }}>{t.addMaintBtn}</button>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
