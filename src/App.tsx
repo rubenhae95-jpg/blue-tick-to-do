@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent } from "react";
+import { useState, useEffect, type ChangeEvent, type CSSProperties } from "react";
 
 type PermissionRole = "Admin" | "Staff";
 type TaskStatus = "Pending" | "In progress" | "Completed" | "Cancelled";
@@ -426,8 +426,30 @@ export default function App() {
     { id: "activity_log" as Tab, label: t.activityLog },
   ];
 
-  const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, fontSize: 13, boxSizing: "border-box", touchAction: "manipulation" };
-  const btnStyle = (variant: "primary" | "secondary" | "danger" = "primary") => ({ padding: "8px 12px", borderRadius: 8, border: variant === "primary" ? "none" : `1px solid ${colors.border}`, background: variant === "primary" ? colors.accent : variant === "danger" ? `${colors.danger}20` : "transparent", color: variant === "primary" ? "#FFF" : variant === "danger" ? colors.danger : colors.text, fontSize: 13, cursor: "pointer", fontWeight: 500, touchAction: "manipulation" as const });
+  // ✅ FIX TYPE ERROR: Menggunakan CSSProperties secara eksplisit agar TS tidak error
+  const inputStyle: CSSProperties = {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: `1px solid ${colors.border}`,
+    background: colors.cardMuted,
+    color: colors.text,
+    fontSize: 13,
+    boxSizing: "border-box",
+    touchAction: "manipulation"
+  };
+
+  const btnStyle = (variant: "primary" | "secondary" | "danger" = "primary"): CSSProperties => ({
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: variant === "primary" ? "none" : `1px solid ${colors.border}`,
+    background: variant === "primary" ? colors.accent : variant === "danger" ? `${colors.danger}20` : "transparent",
+    color: variant === "primary" ? "#FFF" : variant === "danger" ? colors.danger : colors.text,
+    fontSize: 13,
+    cursor: "pointer",
+    fontWeight: 500,
+    touchAction: "manipulation"
+  });
 
   return (
     <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", display: "flex", position: "relative" }}>
