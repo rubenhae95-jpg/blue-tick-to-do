@@ -75,11 +75,13 @@ type MaintenanceItem = {
   notes: string;
 };
 
+// ✅ PRODUCTION & CLEANING DIPISAH
 const categories: string[] = [
   "Factory Supervisor",
   "Factory Logistik",
   "Driver",
-  "Production Cleaning",
+  "Production",
+  "Cleaning",
   "Office",
   "Maintenance",
   "Quality Control",
@@ -157,10 +159,10 @@ const translations = {
 };
 
 const sampleTasks: Task[] = [
-  { id: "1", title: "Clean machine", description: "Bersihkan mesin utama.", category: "Production Cleaning", priority: "High", assignee: "Budi", deadline: "2026-07-17", status: "Completed", notes: "Selesai.", createdAt: "2026-07-17", startTime: "08:00", endTime: "09:10", createdByRole: "Admin" },
+  { id: "1", title: "Clean machine", description: "Bersihkan mesin utama.", category: "Cleaning", priority: "High", assignee: "Budi", deadline: "2026-07-17", status: "Completed", notes: "Selesai.", createdAt: "2026-07-17", startTime: "08:00", endTime: "09:10", createdByRole: "Admin" },
   { id: "2", title: "Wash mold", description: "Cuci cetakan.", category: "Factory Supervisor", priority: "Medium", assignee: "Ani", deadline: "2026-07-17", status: "Completed", notes: "OK.", createdAt: "2026-07-17" },
   { id: "3", title: "Prepare delivery", description: "Siapkan pengiriman.", category: "Factory Logistik", priority: "High", assignee: "Siti", deadline: "2026-07-17", status: "In progress", notes: "Menunggu.", createdAt: "2026-07-17" },
-  { id: "4", title: "Check pump", description: "Cek pompa air.", category: "Production Cleaning", priority: "Low", assignee: "Dedi", deadline: "2026-07-18", status: "Pending", notes: "-", createdAt: "2026-07-17", createdByRole: "Admin" },
+  { id: "4", title: "Check pump", description: "Cek pompa air.", category: "Maintenance", priority: "Low", assignee: "Dedi", deadline: "2026-07-18", status: "Pending", notes: "-", createdAt: "2026-07-17", createdByRole: "Admin" },
 ];
 
 const sampleStock: StockItem[] = [
@@ -223,7 +225,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>(sampleTasks);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All"); const [filterStat, setFilterStat] = useState("All"); const [filterPri, setFilterPri] = useState("All");
-  const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: "", description: "", category: "Production Cleaning", priority: "Medium", assignee: "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
+  const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: "", description: "", category: "Production", priority: "Medium", assignee: "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   const [stockItems, setStockItems] = useState<StockItem[]>(sampleStock);
   const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "" });
   const [meetings, setMeetings] = useState<Meeting[]>(sampleMeetings);
@@ -233,12 +235,14 @@ export default function App() {
 
   if (!currentUser) return <LoginScreen colors={colors} t={t} onLogin={u => { setCurrentUser(u); setTaskForm(p => ({ ...p, assignee: u.permissionRole === "Staff" ? u.name : p.assignee })); }} />;
 
+  // ✅ Tampilkan task tanpa assignee & task milik user
   const filtered = tasks.filter(tk => {
     const s = !search || tk.title.toLowerCase().includes(search.toLowerCase()) || tk.assignee.toLowerCase().includes(search.toLowerCase());
     const c = filterCat === "All" || tk.category === filterCat;
     const st = filterStat === "All" || tk.status === filterStat;
     const p = filterPri === "All" || tk.priority === filterPri;
-    return s && c && st && p && (currentUser.permissionRole === "Admin" || tk.assignee === currentUser.name);
+    const matchesUser = currentUser.permissionRole === "Admin" || tk.assignee === currentUser.name || tk.assignee.trim() === "";
+    return s && c && st && p && matchesUser;
   }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
 
   const stats = {
@@ -250,7 +254,7 @@ export default function App() {
   };
   const pct = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
 
-  // ✅ FIXED: Ultra-Robust CSV Parser
+  // ✅ PARSER CSV: Auto-assignee, Format Tanggal, Support Jam
   const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
@@ -277,6 +281,13 @@ export default function App() {
         const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'));
         const newTasks: Task[] = [];
 
+        const parseDate = (d: string) => {
+          if (!d) return new Date().toISOString().slice(0, 10);
+          const parts = d.split(/[\/\-\.]/);
+          if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+          return d;
+        };
+
         for (let i = 1; i < lines.length; i++) {
           const cols = parseCSVLine(lines[i]);
           if (cols.length < 2) continue;
@@ -287,27 +298,28 @@ export default function App() {
             return idx >= 0 ? (cols[idx] || '').trim() : '';
           };
 
-          const rawCat = get('category') || get('kategori') || get('departemen') || '';
+          // ✅ AUTO-FILL ASSIGNEE DENGAN NAMA USER LOGIN
+          const assigneeVal = get('assignee') || currentUser.name;
+
+          // ✅ PEMISAHAN KATEGORI PRODUCTION & CLEANING
+          const rawCat = get('category') || '';
           const matchedCat = categories.find(c => c.toLowerCase() === rawCat.toLowerCase()) || rawCat || 'Others';
-
-          const rawPri = get('priority') || get('prioritas') || '';
-          const matchedPri = priorities.find(p => p.toLowerCase() === rawPri.toLowerCase()) || 'Medium';
-
-          const rawStat = get('status') || get('staus') || '';
-          const matchedStat = statuses.find(s => s.toLowerCase() === rawStat.toLowerCase()) || 'Pending';
 
           newTasks.push({
             id: String(Date.now() + Math.random()),
-            title: get('title') || get('judul') || get('nama_task') || `Task ${i}`,
-            description: get('description') || get('deskripsi') || '',
+            title: (get('title') || get('judul') || `Task ${i}`).replace(/\.$/, '').trim(),
+            description: get('description') || '',
             category: matchedCat,
-            priority: matchedPri as Priority,
-            assignee: get('assignee') || get('penanggung_jawab') || get('staff') || get('nama') || '',
-            deadline: get('deadline') || get('batas') || get('tanggal') || new Date().toISOString().slice(0, 10),
-            status: matchedStat as TaskStatus,
-            notes: '',
+            priority: (priorities.find(p => p.toLowerCase() === get('priority').toLowerCase()) || 'High') as Priority,
+            assignee: assigneeVal,
+            deadline: parseDate(get('deadline') || get('batas') || ''),
+            status: (statuses.find(s => s.toLowerCase() === get('status').toLowerCase()) || 'Pending') as TaskStatus,
+            notes: get('notes') || '',
             createdAt: new Date().toISOString().slice(0, 10),
-            createdByRole: 'Staff'
+            createdByRole: 'Staff',
+            // ✅ DUKUNGAN KOLOM JAM (opsional di CSV)
+            startTime: get('start_time') || get('jam_mulai') || '',
+            endTime: get('end_time') || get('jam_selesai') || ''
           });
         }
 
@@ -345,7 +357,7 @@ export default function App() {
     const norm: Task = { 
       id: taskForm.id || String(Date.now()), 
       title: taskForm.title, description: taskForm.description || "", 
-      category: taskForm.category || "Production Cleaning", 
+      category: taskForm.category || "Production", 
       priority: (taskForm.priority || "Medium") as Priority, 
       assignee: taskForm.assignee, 
       deadline: taskForm.deadline || new Date().toISOString().slice(0, 10), 
@@ -359,7 +371,7 @@ export default function App() {
       const exists = prev.some(i => i.id === norm.id);
       return exists ? prev.map(i => i.id === norm.id ? norm : i) : [norm, ...prev];
     });
-    setTaskForm({ title: "", description: "", category: "Production Cleaning", priority: "Medium", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
+    setTaskForm({ title: "", description: "", category: "Production", priority: "Medium", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: new Date().toISOString().slice(0, 10), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
   };
 
   return (
@@ -447,7 +459,8 @@ export default function App() {
                         {tk.imageUrl && <img src={tk.imageUrl} alt="Task" style={{ maxWidth: 120, marginTop: 10, borderRadius: 6, objectFit: "cover" }} />}
                         <div style={{ marginTop: 10, color: colors.muted, fontSize: 13 }}>{tk.description}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10, fontSize: 12, color: colors.muted }}>
-                          <span>{t.deadline}: {formatDate(tk.deadline)}</span><span>{t.time}: {formatTimeRange(tk)}</span>
+                          <span>{t.deadline}: {formatDate(tk.deadline)}</span>
+                          <span>{t.time}: {formatTimeRange(tk)}</span>
                         </div>
                         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
                           <button onClick={() => setTasks(p => p.map(i => i.id === tk.id ? { ...i, status: i.status === "Completed" ? "In progress" : "Completed" } : i))} style={primaryBtn(colors)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
