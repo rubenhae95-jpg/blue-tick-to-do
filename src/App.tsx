@@ -382,7 +382,6 @@ export default function App() {
             description: get(['description', 'deskripsi', 'keterangan']) || '',
             category,
             priority,
-            // Use optional chaining here for safety if user is null (though unlikely)
             assignee: rawAssignee || currentUser?.name || "Unknown", 
             deadline: normalizedDate,
             date: normalizedDate,
@@ -484,14 +483,7 @@ export default function App() {
     tk.date === selectedDate && matchesUser(tk.assignee)
   ).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
 
-  const stats = { 
-    total: filteredTasks.length, 
-    completed: filteredTasks.filter(tk => tk.status === "Completed").length, 
-    inProgress: filteredTasks.filter(tk => tk.status === "In progress").length, 
-    pending: filteredTasks.filter(tk => tk.status === "Pending").length, 
-    cancelled: filteredTasks.filter(tk => tk.status === "Cancelled").length 
-  };
-  // ✅ ERROR FIX: Removed unused 'pct' variable that caused the build error
+  // ✅ FIX: Removed unused 'stats' variable declaration that caused the build error
 
   const handleTaskPhotoUpload = (e: ChangeEvent<HTMLInputElement>, taskId: string) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -519,7 +511,7 @@ export default function App() {
   };
 
   const shareWhatsApp = () => {
-    // ✅ ERROR FIX: Use non-null assertion (!) since we return early if currentUser is null
+    // ✅ FIX: Using non-null assertion (!) for currentUser
     const dateStr = formatDate(selectedDate);
     const timeStr = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     const tasksList = filteredTasks.map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
