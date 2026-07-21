@@ -451,7 +451,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // ✅ FIX: Auto-sync assignee when currentUser loads (prevents silent validation failure on reload)
   useEffect(() => {
     if (currentUser && !taskForm.assignee) {
       setTaskForm(prev => ({ ...prev, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : prev.assignee }));
@@ -497,7 +496,6 @@ export default function App() {
     const reader = new FileReader(); reader.onload = () => { const url = reader.result as string; if (url) setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, imageUrl: url } : tk)); }; reader.readAsDataURL(file);
   };
 
-  // ✅ FIXED: Robust Save Logic with Clear Validation & Feedback
   const handleSaveTask = () => {
     const title = taskForm.title?.trim();
     const assignee = taskForm.assignee?.trim() || currentUser.name;
@@ -549,10 +547,35 @@ export default function App() {
     addLog("TASK", `Status changed`);
   };
 
+  const handleSaveMeeting = () => {
+    if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; }
+    const newMeeting: Meeting = {
+      id: String(Date.now()),
+      title: meetingForm.title.trim(),
+      date: meetingForm.date || selectedDate,
+      time: meetingForm.time || "",
+      attendees: meetingForm.attendees || "",
+      notes: meetingForm.notes || ""
+    };
+    const updatedMeetings = [newMeeting, ...meetings];
+    setMeetings(updatedMeetings);
+    addLog("MEETING", `Created meeting: ${newMeeting.title}`);
+    setMeetingForm({ title: "", date: selectedDate, time: "", attendees: "", notes: "" });
+    if (currentUser) {
+      localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks, stock: stockItems, meetings: updatedMeetings, maintenance: maintItems, logs: activityLogs }));
+    }
+    window.alert("✅ Meeting note saved!");
+  };
+
   const shareWhatsApp = () => {
     const dateStr = formatDate(selectedDate);
     const timeStr = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     
+    // ✅ FIXED: Exact GitHub Pages URL + Dynamic User Slug
+    const BASE_URL = "https://rubenhae95-jpg.github.io/blue-tick-to-do";
+    const userSlug = encodeURIComponent(currentUser!.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""));
+    const reportLink = `${BASE_URL}/report/${selectedDate}/${userSlug}`;
+
     const completedList = filteredTasks.filter(tk => tk.status === "Completed").map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
     const pendingList = filteredTasks.filter(tk => tk.status !== "Completed" && tk.status !== "Cancelled").map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
     const taskNotes = filteredTasks.filter(tk => tk.notes && tk.notes.trim() !== "").map(tk => `• [${tk.title}]: ${tk.notes}`).join("\n");
@@ -560,8 +583,7 @@ export default function App() {
     const stockList = stockItems.filter(s => s.date === selectedDate).map(s => `• ${s.item}: ${s.stock - s.keluar + s.masuk} ${s.unit}`).join("\n") || "-";
     const maintList = maintItems.filter(m => m.date === selectedDate).map(m => `• ${m.equipment}: ${m.issue} [${m.status}]`).join("\n") || "-";
     const meetingList = meetings.filter(m => m.date === selectedDate).map(m => `• ${m.title} (${m.time}) - ${m.attendees}`).join("\n") || "-";
-    
-    const reportLink = `https://your-domain.com/report/${selectedDate}/${encodeURIComponent(currentUser!.name.toLowerCase().replace(/\s+/g, "-"))}`;
+
     const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser!.name.toUpperCase()}\n💼 Role : ${currentUser!.roleTitle}\n🕒 Shift : ${currentUser!.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ COMPLETED\n${completedList}\n\n⏳ PENDING / IN PROGRESS\n${pendingList}\n\n📦 STOCK OPNAME\n${stockList}\n\n🔧 MAINTENANCE\n${maintList}\n\n📝 MEETING\n${meetingList}\n\n📌 NOTES\n${notesText}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser!.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View report: ${reportLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
@@ -615,10 +637,10 @@ export default function App() {
         
         @media (max-width: 768px) {
           .main-content { padding: 12px; }
-          header { flex-direction: column; gap: 8px; padding: 12px; }
+          header { flex-direction: column; gap: 12px; padding: 16px; min-height: auto; }
           header > div:nth-child(1) { width: 100%; justify-content: space-between; }
-          header > div:nth-child(2) { position: static; transform: none; margin-top: 4px; align-items: center; }
-          .header-right { position: static; transform: none; width: 100%; justify-content: space-between; margin-top: 8px; flex-wrap: wrap; gap: 8px; }
+          header > div:nth-child(2) { width: 100%; text-align: center; margin: 8px 0; }
+          .header-right { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
           .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
           .task-card { padding: 12px; }
           .task-header { flex-direction: column; gap: 6px; }
@@ -660,20 +682,20 @@ export default function App() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100%" }}>
-        <header style={{ display: "flex", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${colors.border}`, position: "relative", width: "100%", boxSizing: "border-box" }}>
+        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${colors.border}`, width: "100%", boxSizing: "border-box" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button className="hamburger-btn" onClick={() => setMenuOpen(true)}>☰</button>
             <img src={userLogo || DEFAULT_LOGO} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />
           </div>
-          <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 10 }}>
-            <h1 style={{ fontSize: "1.8rem", color: "#ADD8E6", fontWeight: 700, margin: 0, lineHeight: 1, whiteSpace: "nowrap", letterSpacing: "0.5px" }}>BLUE TICK ICE</h1>
-            <span style={{ fontSize: "0.75rem", color: colors.muted, fontWeight: 500, marginTop: 2, textTransform: "uppercase", letterSpacing: "1px" }}>Daily Task Operational</span>
+          <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: "1.6rem", color: "#ADD8E6", fontWeight: 700, margin: 0, lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: "0.5px" }}>BLUE TICK ICE</h1>
+            <span style={{ fontSize: "0.7rem", color: colors.muted, fontWeight: 500, marginTop: 2, display: "block", textTransform: "uppercase", letterSpacing: "1px" }}>Daily Task Operational</span>
           </div>
-          <div className="header-right" style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
             <span style={{ fontSize: 13, color: colors.muted, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
               {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} | {formatDate(currentTime)}
             </span>
-            {activeTab !== "settings" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), whiteSpace: "nowrap" }}>Share</button>}
+            {activeTab !== "settings" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), whiteSpace: "nowrap", padding: "8px 14px" }}>Share</button>}
           </div>
         </header>
 
@@ -899,14 +921,7 @@ export default function App() {
                 <input style={inputStyle} value={meetingForm.time} onChange={e => setMeetingForm(p => ({ ...p, time: e.target.value }))} type="time" />
                 <input style={inputStyle} value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} />
                 <textarea style={{ ...inputStyle, minHeight: 60, marginTop: 10 }} value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} />
-                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { 
-                  if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; } 
-                  const newMeeting: Meeting = { id: String(Date.now()), ...meetingForm };
-                  setMeetings(p => [newMeeting, ...p]); 
-                  addLog("MEETING", `Created meeting: ${meetingForm.title}`); 
-                  setMeetingForm({ title: "", date: selectedDate, time: "", attendees: "", notes: "" }); 
-                  window.alert("✅ Meeting note saved!");
-                }}>{t.addMeeting}</button>
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={handleSaveMeeting}>{t.addMeeting}</button>
               </div>
             </div>
           )}
