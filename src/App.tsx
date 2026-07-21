@@ -8,7 +8,7 @@ type PermissionRole = "Admin" | "Staff";
 type TaskStatus = "Pending" | "In progress" | "Completed" | "Cancelled";
 type Priority = "High" | "Medium" | "Low";
 type Theme = "light" | "dark";
-type Tab = "dashboard" | "tasks" | "stock" | "meeting" | "maintenance" | "schedule" | "activity_log" | "settings";
+type Tab = "dashboard" | "tasks" | "stock" | "meeting" | "maintenance" | "activity_log" | "settings";
 type Lang = "id" | "en";
 
 interface UserSession {
@@ -73,7 +73,6 @@ interface StockItem {
   notes: string;
   updatedAt: string;
   date: string;
-  minStock: number;
 }
 
 interface Meeting {
@@ -92,15 +91,6 @@ interface MaintenanceItem {
   technician: string;
   status: TaskStatus;
   date: string;
-  notes: string;
-}
-
-interface ScheduleEntry {
-  id: string;
-  equipment: string;
-  date: string;
-  status: TaskStatus;
-  responsible: string;
   notes: string;
 }
 
@@ -131,7 +121,7 @@ const statusColors: Record<TaskStatus, { bg: string; text: string }> = {
 const translations = {
   id: {
     dashboard: "Dashboard", tasks: "Tasks", stock: "Stok Opname", meeting: "Meeting Notes", maintenance: "Maintenance", 
-    schedule: "Maintenance Schedule", activityLog: "Activity Log", settings: "Pengaturan",
+    activityLog: "Activity Log", settings: "Pengaturan",
     total: "Total Tasks", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
     progress: "Today's Progress", share: "Share Report", addTask: "Tambah Task", edit: "Edit", save: "Simpan", cancel: "Batal", delete: "Hapus",
     checklist: "Checklist", undo: "Undo", noTasks: "Tidak ada aktivitas untuk tanggal ini.", login: "Masuk", logout: "Keluar",
@@ -145,11 +135,11 @@ const translations = {
     addMaint: "Tambah maintenance", equipName: "Peralatan", issueDesc: "Masalah", techName: "Teknisi", maintNotes: "Catatan", addMaintBtn: "Tambah", noMaint: "Kosong.",
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Masuk untuk mulai", loginName: "Nama", loginPassword: "Password", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.", passMismatch: "Password salah.",
     csvSuccess: "tugas berhasil di-parsing!", csvError: "Gagal parse CSV.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
-    lowStock: "Stok Menipis!", minStock: "Batas Minimal", addSchedule: "Tambah Jadwal", responsible: "Penanggung Jawab", noLogs: "Belum ada aktivitas tercatat."
+    lowStock: "Stok Menipis!", addSchedule: "Tambah Jadwal", responsible: "Penanggung Jawab", noLogs: "Belum ada aktivitas tercatat."
   },
   en: {
     dashboard: "Dashboard", tasks: "Tasks", stock: "Stock Opname", meeting: "Meeting Notes", maintenance: "Maintenance",
-    schedule: "Maintenance Schedule", activityLog: "Activity Log", settings: "Settings",
+    activityLog: "Activity Log", settings: "Settings",
     total: "Total Tasks", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
     progress: "Today's Progress", share: "Share Report", addTask: "Add Task", edit: "Edit", save: "Save", cancel: "Cancel", delete: "Delete",
     checklist: "Checklist", undo: "Undo", noTasks: "No activities for this date.", login: "Login", logout: "Logout",
@@ -163,7 +153,7 @@ const translations = {
     addMaint: "Add maintenance", equipName: "Equipment", issueDesc: "Issue", techName: "Technician", maintNotes: "Notes", addMaintBtn: "Add", noMaint: "Empty.",
     loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Login to start", loginName: "Name", loginPassword: "Password", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.", passMismatch: "Incorrect password.",
     csvSuccess: "tasks parsed successfully!", csvError: "CSV parse failed.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
-    lowStock: "Low Stock!", minStock: "Min Threshold", addSchedule: "Add Schedule", responsible: "Responsible", noLogs: "No activity logs yet."
+    lowStock: "Low Stock!", addSchedule: "Add Schedule", responsible: "Responsible", noLogs: "No activity logs yet."
   },
 };
 
@@ -172,7 +162,7 @@ const sampleTasks: Task[] = [
 ];
 
 const sampleStock: StockItem[] = [
-  { id: "1", item: "Es kristal", unit: "kg", stock: 150, masuk: 20, keluar: 50, notes: "Aman", updatedAt: "2026-07-18", date: "2026-07-18", minStock: 100 },
+  { id: "1", item: "Es kristal", unit: "kg", stock: 150, masuk: 20, keluar: 50, notes: "Aman", updatedAt: "2026-07-18", date: "2026-07-18" },
 ];
 
 const sampleMeetings: Meeting[] = [{ id: "1", title: "Briefing", date: "2026-07-19", time: "07:30", attendees: "Budi, Siti", notes: "Target harian" }];
@@ -196,7 +186,10 @@ const normalizeDate = (dateStr: string): string => {
   return dateStr;
 };
 
-const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+const formatDate = (d: string | Date) => {
+  const dateObj = typeof d === "string" ? new Date(d) : d;
+  return dateObj.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
 const formatTimeRange = (t: Task) => t.startTime && t.endTime ? `${t.startTime} – ${t.endTime}` : "-";
 const formatDateTime = (iso: string) => new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -282,14 +275,13 @@ export default function App() {
   const [editForm, setEditForm] = useState<Partial<Task>>({});
 
   const [stockItems, setStockItems] = useState<StockItem[]>(sampleStock);
-  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", minStock: "", date: getToday() });
+  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", date: getToday() });
+  
   const [meetings, setMeetings] = useState<Meeting[]>(sampleMeetings);
   const [meetingForm, setMeetingForm] = useState({ title: "", date: getToday(), time: "", attendees: "", notes: "" });
   const [maintItems, setMaintItems] = useState<MaintenanceItem[]>(sampleMaintenance);
   const [maintForm, setMaintForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending" as TaskStatus, date: getToday(), notes: "" });
 
-  const [scheduleItems, setScheduleItems] = useState<ScheduleEntry[]>([]);
-  const [scheduleForm, setScheduleForm] = useState({ equipment: "", date: getToday(), responsible: "", status: "Pending" as TaskStatus, notes: "" });
   const [activityLogs, setActivityLogs] = useState<LogEntry[]>([]);
 
   const addLog = (type: string, action: string) => {
@@ -435,7 +427,6 @@ export default function App() {
               setStockItems(d.stock || sampleStock);
               setMeetings(d.meetings || sampleMeetings);
               setMaintItems(d.maintenance || sampleMaintenance);
-              setScheduleItems(d.schedule || []);
               setActivityLogs(d.logs || []);
             }
           }
@@ -451,14 +442,27 @@ export default function App() {
     if (currentUser) {
       localStorage.setItem(`btice_theme_${currentUser.name}`, JSON.stringify(theme));
       localStorage.setItem(`btice_lang_${currentUser.name}`, JSON.stringify(lang));
-      localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks, stock: stockItems, meetings, maintenance: maintItems, schedule: scheduleItems, logs: activityLogs }));
+      localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks, stock: stockItems, meetings, maintenance: maintItems, logs: activityLogs }));
     }
-  }, [currentUser, theme, lang, tasks, stockItems, meetings, maintItems, scheduleItems, activityLogs]);
+  }, [currentUser, theme, lang, tasks, stockItems, meetings, maintItems, activityLogs]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // ✅ FIX: Auto-sync assignee when currentUser loads (prevents silent validation failure on reload)
+  useEffect(() => {
+    if (currentUser && !taskForm.assignee) {
+      setTaskForm(prev => ({ ...prev, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : prev.assignee }));
+    }
+  }, [currentUser, taskForm.assignee]);
+
+  useEffect(() => {
+    setMeetingForm(prev => ({ ...prev, date: selectedDate }));
+    setStockForm(prev => ({ ...prev, date: selectedDate }));
+    setMaintForm(prev => ({ ...prev, date: selectedDate }));
+  }, [selectedDate]);
 
   const handleLogin = (user: CurrentUser) => {
     const session: UserSession = { id: String(Date.now()), username: user.name, role: user.roleTitle, isLoggedIn: true };
@@ -493,11 +497,43 @@ export default function App() {
     const reader = new FileReader(); reader.onload = () => { const url = reader.result as string; if (url) setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, imageUrl: url } : tk)); }; reader.readAsDataURL(file);
   };
 
+  // ✅ FIXED: Robust Save Logic with Clear Validation & Feedback
   const handleSaveTask = () => {
-    if (!taskForm.title?.trim() || !taskForm.assignee?.trim()) return;
-    setTasks(prev => [{ id: String(Date.now()), ...taskForm, createdAt: getToday(), createdByRole: currentUser.permissionRole } as Task, ...prev]);
-    addLog("TASK", `Created task: ${taskForm.title}`);
-    setTaskForm({ title: "", description: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: getToday(), date: getToday(), status: "Pending", notes: "", startTime: "", endTime: "", reason: "", imageUrl: "" });
+    const title = taskForm.title?.trim();
+    const assignee = taskForm.assignee?.trim() || currentUser.name;
+    
+    if (!title) { window.alert(t.alertTitleRequired); return; }
+    if (!assignee) { window.alert(t.alertAssigneeRequired); return; }
+
+    const newTask: Task = {
+      id: String(Date.now()),
+      title,
+      description: taskForm.description || "",
+      category: taskForm.category || "Production",
+      priority: taskForm.priority || "High",
+      assignee,
+      deadline: taskForm.date || selectedDate,
+      date: taskForm.date || selectedDate,
+      startTime: taskForm.startTime || "",
+      endTime: taskForm.endTime || "",
+      status: taskForm.status || "Pending",
+      notes: taskForm.notes || "",
+      createdAt: getToday(),
+      createdByRole: currentUser.permissionRole,
+      reason: "",
+      imageUrl: taskForm.imageUrl || ""
+    };
+
+    setTasks(prev => [newTask, ...prev]);
+    addLog("TASK", `Created task: ${title}`);
+    
+    setTaskForm({
+      title: "", description: "", category: "Production", priority: "High",
+      assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "",
+      deadline: selectedDate, date: selectedDate, startTime: "", endTime: "",
+      status: "Pending", notes: "", createdAt: getToday(), reason: "", imageUrl: ""
+    });
+    window.alert("✅ Task saved successfully!");
   };
 
   const handleInlineEdit = (taskId: string) => { const task = tasks.find(tk => tk.id === taskId); if (task) { setEditingTaskId(taskId); setEditForm(task); } };
@@ -533,7 +569,6 @@ export default function App() {
   const menuItems = [
     { id: "dashboard" as Tab, label: t.dashboard },
     { id: "tasks" as Tab, label: t.tasks },
-    { id: "schedule" as Tab, label: t.schedule },
     { id: "stock" as Tab, label: t.stock },
     { id: "meeting" as Tab, label: t.meeting },
     { id: "maintenance" as Tab, label: t.maintenance },
@@ -576,8 +611,14 @@ export default function App() {
         .task-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
         .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .split-grid { display: grid; gap: 16px; grid-template-columns: 1.2fr 1fr; }
+        
         @media (max-width: 768px) {
           .main-content { padding: 12px; }
+          header { flex-direction: column; gap: 8px; padding: 12px; }
+          header > div:nth-child(1) { width: 100%; justify-content: space-between; }
+          header > div:nth-child(2) { position: static; transform: none; margin-top: 4px; align-items: center; }
+          .header-right { position: static; transform: none; width: 100%; justify-content: space-between; margin-top: 8px; flex-wrap: wrap; gap: 8px; }
           .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
           .task-card { padding: 12px; }
           .task-header { flex-direction: column; gap: 6px; }
@@ -586,10 +627,9 @@ export default function App() {
           .form-grid { grid-template-columns: 1fr; }
           .filter-bar { flex-direction: column; }
           .filter-bar input, .filter-bar select { width: 100%; }
-          header { flex-direction: column; gap: 12px; padding: 16px; }
-          header > div:nth-child(1) { width: 100%; justify-content: space-between; }
-          header > div:nth-child(2) { position: static; transform: none; margin-top: 10px; align-items: center; }
-          .header-right { position: static; transform: none; margin-top: 10px; width: 100%; justify-content: space-between; }
+          .split-grid { grid-template-columns: 1fr; }
+          .progress-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+          .progress-pct { margin-left: 0; }
         }
         input[type="date"], input[type="time"], select, input[type="password"] { color-scheme: ${theme}; }
         input[type="number"] { -moz-appearance: textfield; }
@@ -631,7 +671,7 @@ export default function App() {
           </div>
           <div className="header-right" style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 13, color: colors.muted, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-              {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} | {formatDate(currentTime)}
             </span>
             {activeTab !== "settings" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), whiteSpace: "nowrap" }}>Share</button>}
           </div>
@@ -644,7 +684,6 @@ export default function App() {
             const todayStock = stockItems.filter(s => s.date === today);
             const todayMeetings = meetings.filter(m => m.date === today);
             const todayMaint = maintItems.filter(m => m.date === today);
-            const todaySchedule = scheduleItems.filter(s => s.date === today);
             return (
               <>
                 <div className="stats-grid">
@@ -673,9 +712,8 @@ export default function App() {
                   {todayStock.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Stock</div>{todayStock.slice(0,3).map(s=><div key={s.id} style={{fontSize:13, marginBottom:4}}>• {s.item}: {s.stock-s.keluar+s.masuk} {s.unit}</div>)}</div>}
                   {todayMeetings.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Meetings</div>{todayMeetings.slice(0,3).map(m=><div key={m.id} style={{fontSize:13, marginBottom:4}}>• {m.title} ({m.time})</div>)}</div>}
                   {todayMaint.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Maintenance</div>{todayMaint.slice(0,3).map(m=><div key={m.id} style={{fontSize:13, marginBottom:4}}>• {m.equipment}: {m.status}</div>)}</div>}
-                  {todaySchedule.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Schedule</div>{todaySchedule.slice(0,3).map(s=><div key={s.id} style={{fontSize:13, marginBottom:4}}>• {s.equipment}</div>)}</div>}
                 </div>
-                {(todayTasks.length===0 && todayStock.length===0 && todayMeetings.length===0 && todayMaint.length===0 && todaySchedule.length===0) && <div style={{textAlign:"center", padding:40, color:colors.muted}}>No activities recorded for today.</div>}
+                {(todayTasks.length===0 && todayStock.length===0 && todayMeetings.length===0 && todayMaint.length===0) && <div style={{textAlign:"center", padding:40, color:colors.muted}}>No activities recorded for today.</div>}
               </>
             );
           })()}
@@ -734,7 +772,7 @@ export default function App() {
                 <div className="form-grid">
                   <input style={inputStyle} value={taskForm.title || ""} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
                   <input style={inputStyle} value={taskForm.assignee || ""} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} disabled={currentUser.permissionRole === "Staff"} />
-                  <input style={inputStyle} value={taskForm.date || ""} onChange={e => setTaskForm(p => ({ ...p, date: e.target.value, deadline: e.target.value }))} type="date" />
+                  <input style={inputStyle} value={taskForm.date || selectedDate} onChange={e => setTaskForm(p => ({ ...p, date: e.target.value, deadline: e.target.value }))} type="date" />
                   <input style={inputStyle} value={taskForm.startTime || ""} onChange={e => setTaskForm(p => ({ ...p, startTime: e.target.value }))} type="time" />
                   <input style={inputStyle} value={taskForm.endTime || ""} onChange={e => setTaskForm(p => ({ ...p, endTime: e.target.value }))} type="time" />
                   <select style={inputStyle} value={taskForm.category || "Production"} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
@@ -761,7 +799,6 @@ export default function App() {
                   <input id="settings-csv" type="file" accept=".csv" onChange={handleCsvUpload} style={{ display: "none" }} />
                   <label htmlFor="settings-csv" style={{ ...btnStyle("secondary"), cursor: "pointer", display: "inline-block", padding: "8px 16px" }}>Choose CSV</label>
                   
-                  {/* ✅ FIXED: Explicit Save Button with Date Sync & Tab Switch */}
                   {pendingImportedTasks && (
                     <div style={{ marginTop: 16, padding: 14, background: colors.accentBg, borderRadius: 10, border: `1px solid ${colors.accent}` }}>
                       <div style={{ fontSize: 13, color: colors.text, marginBottom: 8, fontWeight: 600 }}>📦 {pendingImportedTasks.length} tasks ready to save</div>
@@ -769,23 +806,14 @@ export default function App() {
                         if (!pendingImportedTasks || pendingImportedTasks.length === 0) return;
                         const targetDate = pendingImportedTasks[0].date;
                         const mergedTasks = [...pendingImportedTasks, ...tasks];
-                        
                         setTasks(mergedTasks);
-                        setSelectedDate(targetDate); // ✅ Sync date picker
+                        setSelectedDate(targetDate);
                         setSearch("");
                         setFilterStat("All");
-                        setActiveTab("tasks"); // ✅ Navigate to Tasks tab
+                        setActiveTab("tasks");
                         window.scrollTo({ top: 0, behavior: "smooth" });
-                        
                         if(currentUser) {
-                          localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ 
-                            tasks: mergedTasks, 
-                            stock: stockItems, 
-                            meetings, 
-                            maintenance: maintItems, 
-                            schedule: scheduleItems, 
-                            logs: activityLogs 
-                          }));
+                          localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks: mergedTasks, stock: stockItems, meetings, maintenance: maintItems, logs: activityLogs }));
                         }
                         setPendingImportedTasks(null);
                         window.alert("✅ Tasks saved & synced to Local Storage!");
@@ -803,24 +831,20 @@ export default function App() {
           )}
 
           {activeTab === "stock" && (
-            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div className="split-grid">
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.stock}</div>
                 <div style={{ display: "grid", gap: 12 }}>
                   {stockItems.filter(s => s.date === selectedDate).map(s => {
                     const current = s.stock - s.keluar + s.masuk;
-                    const isLow = current <= (s.minStock || 0);
                     return (
-                      <div key={s.id} className="task-card" style={{ borderColor: isLow ? colors.danger : colors.border, background: isLow ? `${colors.danger}10` : colors.cardMuted }}>
+                      <div key={s.id} className="task-card">
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                           <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 15, fontWeight: 600 }}>{s.item}</span>
-                              {isLow && <span style={{ background: colors.danger, color: "#FFF", fontSize: 10, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>{t.lowStock}</span>}
-                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 600 }}>{s.item}</div>
                             <div style={{ fontSize: 12, color: colors.muted }}>{t.updateLast}: {formatDate(s.updatedAt)}</div>
                           </div>
-                          <div style={{ fontSize: 16, fontWeight: 700, color: isLow ? colors.danger : colors.accent }}>{t.currentStock}: {current} {s.unit}</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: colors.accent }}>{t.currentStock}: {current} {s.unit}</div>
                         </div>
                         {s.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>{s.notes}</div>}
                         <button style={{ ...btnStyle("danger"), marginTop: 12 }} onClick={() => { setStockItems(p => p.filter(i => i.id !== s.id)); addLog("STOCK", `Deleted item: ${s.item}`); }}>{t.deleteItem}</button>
@@ -838,22 +862,21 @@ export default function App() {
                   <input style={inputStyle} value={stockForm.masuk} onChange={e => setStockForm(p => ({ ...p, masuk: e.target.value }))} placeholder={t.incoming} type="number" />
                   <input style={inputStyle} value={stockForm.keluar} onChange={e => setStockForm(p => ({ ...p, keluar: e.target.value }))} placeholder={t.outgoing} type="number" />
                 </div>
-                <input style={inputStyle} value={stockForm.minStock} onChange={e => setStockForm(p => ({ ...p, minStock: e.target.value }))} placeholder={t.minStock} type="number" />
                 <input style={inputStyle} value={stockForm.item} onChange={e => setStockForm(p => ({ ...p, item: e.target.value }))} placeholder={t.itemName} />
                 <input style={inputStyle} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))} placeholder="Unit" />
                 <textarea style={{ ...inputStyle, minHeight: 60, marginTop: 10 }} value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
                 <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { 
                   if (!stockForm.item.trim()) { window.alert(t.alertTitleRequired); return; } 
-                  setStockItems(p => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, masuk: Number(stockForm.masuk) || 0, keluar: Number(stockForm.keluar) || 0, notes: stockForm.notes, updatedAt: getToday(), date: stockForm.date || getToday(), minStock: Number(stockForm.minStock) || 0 }, ...p]); 
+                  setStockItems(p => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, masuk: Number(stockForm.masuk) || 0, keluar: Number(stockForm.keluar) || 0, notes: stockForm.notes, updatedAt: getToday(), date: stockForm.date || getToday() }, ...p]); 
                   addLog("STOCK", `Added item: ${stockForm.item}`);
-                  setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", minStock: "", date: getToday() }); 
+                  setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", date: getToday() }); 
                 }}>{t.addNewItem}</button>
               </div>
             </div>
           )}
 
           {activeTab === "meeting" && (
-            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div className="split-grid">
                <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.meeting}</div>
                 <div style={{ display: "grid", gap: 12 }}>
@@ -876,13 +899,20 @@ export default function App() {
                 <input style={inputStyle} value={meetingForm.time} onChange={e => setMeetingForm(p => ({ ...p, time: e.target.value }))} type="time" />
                 <input style={inputStyle} value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} />
                 <textarea style={{ ...inputStyle, minHeight: 60, marginTop: 10 }} value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} />
-                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; } setMeetings(p => [{ id: String(Date.now()), ...meetingForm }, ...p]); addLog("MEETING", `Created meeting: ${meetingForm.title}`); setMeetingForm({ title: "", date: getToday(), time: "", attendees: "", notes: "" }); }}>{t.addMeeting}</button>
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { 
+                  if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; } 
+                  const newMeeting: Meeting = { id: String(Date.now()), ...meetingForm };
+                  setMeetings(p => [newMeeting, ...p]); 
+                  addLog("MEETING", `Created meeting: ${meetingForm.title}`); 
+                  setMeetingForm({ title: "", date: selectedDate, time: "", attendees: "", notes: "" }); 
+                  window.alert("✅ Meeting note saved!");
+                }}>{t.addMeeting}</button>
               </div>
             </div>
           )}
 
           {activeTab === "maintenance" && (
-            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
+            <div className="split-grid">
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.maintenance}</div>
                 <div style={{ display: "grid", gap: 12 }}>
@@ -912,46 +942,7 @@ export default function App() {
                 <input style={inputStyle} value={maintForm.technician} onChange={e => setMaintForm(p => ({ ...p, technician: e.target.value }))} placeholder={t.techName} />
                 <select style={inputStyle} value={maintForm.status} onChange={e => setMaintForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
                 <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 10 }} value={maintForm.notes} onChange={e => setMaintForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
-                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { if (!maintForm.equipment.trim()) { window.alert(t.alertTitleRequired); return; } setMaintItems(p => [{ id: String(Date.now()), ...maintForm }, ...p]); addLog("MAINTENANCE", `Created maintenance: ${maintForm.equipment}`); setMaintForm({ equipment: "", issue: "", technician: "", status: "Pending", date: getToday(), notes: "" }); }}>{t.addMaintBtn}</button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "schedule" && (
-            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 1fr" }}>
-              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.schedule}</div>
-                <div style={{ display: "grid", gap: 12 }}>
-                  {scheduleItems.filter(s => s.date === selectedDate).map(s => {
-                    const badge = statusColors[s.status];
-                    return (
-                      <div key={s.id} className="task-card">
-                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                          <div style={{ fontSize: 15, fontWeight: 600 }}>{s.equipment}</div>
-                          <span className="task-badge" style={{ background: badge.bg, color: badge.text }}>{s.status}</span>
-                        </div>
-                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{formatDate(s.date)} · {t.responsible}: {s.responsible}</div>
-                        {s.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{s.notes}</div>}
-                        <button style={{ ...btnStyle("danger"), marginTop: 10 }} onClick={() => { setScheduleItems(p => p.filter(x => x.id !== s.id)); addLog("SCHEDULE", `Deleted schedule: ${s.equipment}`); }}>{t.delete}</button>
-                      </div>
-                    );
-                  })}
-                  {scheduleItems.filter(s => s.date === selectedDate).length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMaint}</div>}
-                </div>
-              </div>
-              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.addSchedule}</div>
-                <input style={inputStyle} value={scheduleForm.date} onChange={e => setScheduleForm(p => ({ ...p, date: e.target.value }))} type="date" />
-                <input style={inputStyle} value={scheduleForm.equipment} onChange={e => setScheduleForm(p => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} />
-                <input style={inputStyle} value={scheduleForm.responsible} onChange={e => setScheduleForm(p => ({ ...p, responsible: e.target.value }))} placeholder={t.responsible} />
-                <select style={inputStyle} value={scheduleForm.status} onChange={e => setScheduleForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 10 }} value={scheduleForm.notes} onChange={e => setScheduleForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
-                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { 
-                  if (!scheduleForm.equipment.trim() || !scheduleForm.responsible.trim()) { window.alert(t.alertTitleRequired); return; }
-                  setScheduleItems(p => [{ id: String(Date.now()), ...scheduleForm }, ...p]);
-                  addLog("SCHEDULE", `Created schedule: ${scheduleForm.equipment}`);
-                  setScheduleForm({ equipment: "", date: getToday(), responsible: "", status: "Pending", notes: "" });
-                }}>{t.addSchedule}</button>
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { if (!maintForm.equipment.trim()) { window.alert(t.alertTitleRequired); return; } setMaintItems(p => [{ id: String(Date.now()), ...maintForm }, ...p]); addLog("MAINTENANCE", `Created maintenance: ${maintForm.equipment}`); setMaintForm({ equipment: "", issue: "", technician: "", status: "Pending", date: selectedDate, notes: "" }); }}>{t.addMaintBtn}</button>
               </div>
             </div>
           )}
