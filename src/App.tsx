@@ -2,7 +2,7 @@ import { useState, useEffect, type ChangeEvent, type CSSProperties } from "react
 import { supabase } from './lib/supabase';
 
 // ==========================================
-// TYPE DEFINITIONS (sama seperti sebelumnya)
+// TYPE DEFINITIONS
 // ==========================================
 type PermissionRole = "Admin" | "Staff";
 type TaskStatus = "Pending" | "In progress" | "Completed" | "Cancelled";
@@ -95,7 +95,7 @@ interface LogEntry {
 }
 
 // ==========================================
-// CONSTANTS & HELPERS
+// CONSTANTS
 // ==========================================
 const DEFAULT_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230EA5E9'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
 
@@ -156,7 +156,6 @@ const getColors = (theme: Theme): Colors => theme === "light"
   ? { page: "#F8FAFC", card: "#FFFFFF", cardMuted: "#F1F5F9", text: "#0F172A", muted: "#64748B", border: "#E2E8F0", accent: "#0EA5E9", accentBg: "#E0F2FE", danger: "#EF4444", success: "#10B981", warning: "#F59E0B" }
   : { page: "#0B1120", card: "#111827", cardMuted: "#1F2937", text: "#F3F4F6", muted: "#9CA3AF", border: "#374151", accent: "#38BDF8", accentBg: "#0C4A6E", danger: "#F87171", success: "#34D399", warning: "#FBBF24" };
 
-// Helper: Convert CamelCase to Snake_Case for Supabase
 const toSnakeCase = (obj: Record<string, any>): Record<string, any> => {
   const converted: Record<string, any> = {};
   for (const key in obj) {
@@ -169,30 +168,30 @@ const toSnakeCase = (obj: Record<string, any>): Record<string, any> => {
 };
 
 // ==========================================
-// LOGIN SCREEN (DIPERBARUI: Dropdown Position dari DB)
+// LOGIN SCREEN (FIXED: no 'distinct' in select)
 // ==========================================
 function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: CurrentUser) => void; t: typeof translations.id }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
-  const [role, setRole] = useState<string>(""); // Sekarang string, bukan enum
+  const [role, setRole] = useState<string>(""); // string, not enum
   const [shift, setShift] = useState("Day");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [positions, setPositions] = useState<string[]>(["Staff", "Admin"]); // Default fallback
+  const [positions, setPositions] = useState<string[]>(["Staff", "Admin"]);
 
-  // Ambil semua nilai unik dari kolom 'position' di tabel users
   useEffect(() => {
     const fetchPositions = async () => {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('position', { distinct: true })
-          .order('position', { ascending: true });
+          .select('position'); // ❌ Tidak pakai { distinct: true }
 
         if (error) throw error;
         if (data) {
-          const uniquePos = Array.from(new Set(data.map((r: any) => r.position || "").filter(Boolean)));
+          const uniquePos = Array.from(new Set(
+            data.map((r: any) => r.position?.trim()).filter(Boolean)
+          ));
           setPositions(uniquePos.length > 0 ? uniquePos : ["Staff", "Admin"]);
         }
       } catch (e) {
@@ -248,7 +247,6 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
         <input value={password} type="password" onChange={e => setPassword(e.target.value)} placeholder={t.loginPassword} style={inputStyle} onKeyDown={e => e.key === "Enter" && submit()} />
         <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder={t.loginRole} style={inputStyle} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          {/* Dropdown Position dari DB */}
           <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inputStyle, width: "100%" }}>
             {positions.map(pos => <option key={pos} value={pos}>{pos}</option>)}
           </select>
@@ -266,7 +264,7 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
 }
 
 // ==========================================
-// MAIN APP (tidak berubah, kecuali penyesuaian tipe `role`)
+// MAIN APP (tidak berubah, kecuali penyesuaian tipe)
 // ==========================================
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -514,7 +512,7 @@ export default function App() {
         </header>
 
         <main className="main-content">
-          {/* Dashboard, Tasks, Stock, dll — sama seperti versi sebelumnya (tidak diubah) */}
+          {/* Dashboard, Tasks, dll — sama seperti sebelumnya */}
           {activeTab === "dashboard" && (() => {
             const today = getToday();
             const todayTasks = tasks.filter(tk => tk.date === today && matchesUser(tk.assignee));
@@ -544,6 +542,7 @@ export default function App() {
             );
           })()}
 
+          {/* Sisanya (tasks, stock, meeting, dll) tetap sama — tidak perlu diulang untuk efisiensi */}
           {activeTab === "tasks" && (
             <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
@@ -602,7 +601,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Bagian stock, meeting, maintenance, activity_log, settings — tetap sama seperti versi sebelumnya (tidak diubah) */}
           {activeTab === "stock" && (
             <div className="split-grid">
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
@@ -617,7 +615,6 @@ export default function App() {
                           <span style={{ fontWeight: 700, color: current <= 0 ? colors.danger : colors.accent }}>{current} {s.unit}</span>
                         </div>
                         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                          {/* Tanda '+' DIHAPUS — hanya "Masuk" dan "Keluar" */}
                           <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.incoming} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ masuk: s.masuk+n, updatedAt:getToday() }).eq('id',s.id); setStockItems(p=>p.map(i=>i.id===s.id?{...i,masuk:i.masuk+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Added ${n} to ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Masuk</button>
                           <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.outgoing} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ keluar: s.keluar+n, updatedAt:getToday() }).eq('id',s.id); setStockItems(p=>p.map(i=>i.id===s.id?{...i,keluar:i.keluar+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Removed ${n} from ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Keluar</button>
                         </div>
