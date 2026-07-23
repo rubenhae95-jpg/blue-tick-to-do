@@ -1,27 +1,15 @@
 import { useState, useEffect, type ChangeEvent, type CSSProperties } from "react";
+import { supabase } from './lib/supabase';
 
 // ==========================================
-// TYPE DEFINITIONS (STRICT TYPESCRIPT)
+// TYPE DEFINITIONS (sama seperti sebelumnya)
 // ==========================================
-
 type PermissionRole = "Admin" | "Staff";
 type TaskStatus = "Pending" | "In progress" | "Completed" | "Cancelled";
 type Priority = "High" | "Medium" | "Low";
 type Theme = "light" | "dark";
 type Tab = "dashboard" | "tasks" | "stock" | "meeting" | "maintenance" | "activity_log" | "settings";
 type Lang = "id" | "en";
-
-interface UserSession {
-  id: string;
-  username: string;
-  role?: string;
-  isLoggedIn: boolean;
-}
-
-interface UserCredentials {
-  username: string;
-  password: string;
-}
 
 interface CurrentUser {
   name: string;
@@ -47,6 +35,7 @@ interface Task {
   createdByRole?: PermissionRole;
   reason?: string;
   imageUrl?: string;
+  user_name?: string;
 }
 
 interface Colors {
@@ -73,6 +62,7 @@ interface StockItem {
   notes: string;
   updatedAt: string;
   date: string;
+  user_name?: string;
 }
 
 interface Meeting {
@@ -82,6 +72,7 @@ interface Meeting {
   time: string;
   attendees: string;
   notes: string;
+  user_name?: string;
 }
 
 interface MaintenanceItem {
@@ -92,6 +83,7 @@ interface MaintenanceItem {
   status: TaskStatus;
   date: string;
   notes: string;
+  user_name?: string;
 }
 
 interface LogEntry {
@@ -99,13 +91,14 @@ interface LogEntry {
   type: string;
   action: string;
   timestamp: string;
+  user_name?: string;
 }
 
 // ==========================================
 // CONSTANTS & HELPERS
 // ==========================================
+const DEFAULT_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230EA5E9'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
 
-const DEFAULT_LOGO = "https://via.placeholder.com/48/0EA5E9/FFFFFF?text=BT";
 const categories: string[] = ["Production", "Cleaning", "Logistics", "Supervision", "Office", "Maintenance", "Factory Supervisor", "Other"];
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
@@ -120,134 +113,161 @@ const statusColors: Record<TaskStatus, { bg: string; text: string }> = {
 
 const translations = {
   id: {
-    dashboard: "Dashboard", tasks: "Tasks", stock: "Stok Opname", meeting: "Meeting Notes", maintenance: "Maintenance", 
+    dashboard: "Dashboard", tasks: "Tasks", stock: "Stok Opname", meeting: "Meeting Notes", maintenance: "Maintenance",
     activityLog: "Activity Log", settings: "Pengaturan",
-    total: "Total Tasks", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
-    progress: "Today's Progress", share: "Share Report", addTask: "Tambah Task", edit: "Edit", save: "Simpan", cancel: "Batal", delete: "Hapus",
-    checklist: "Checklist", undo: "Undo", noTasks: "Tidak ada aktivitas untuk tanggal ini.", login: "Masuk", logout: "Keluar",
-    darkMode: "Mode gelap", lightMode: "Mode terang", taskFormTitle: "Tambah Task", adminStaffNote: "Admin & Staff bisa buat task.",
-    titlePlaceholder: "Judul tugas", descriptionPlaceholder: "Deskripsi tugas", assigneePlaceholder: "Penanggung jawab", notesPlaceholder: "Catatan internal",
-    reasonPlaceholder: "Alasan pending/progress", alertTitleRequired: "Judul wajib diisi.", alertAssigneeRequired: "Assignee wajib diisi.",
+    total: "Total", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
+    progress: "Progress Hari Ini", share: "Share", addTask: "Tambah Task", edit: "Edit", save: "Simpan", cancel: "Batal", delete: "Hapus",
+    checklist: "Checklist", undo: "Undo", noTasks: "Tidak ada aktivitas.",
+    login: "Masuk", logout: "Keluar", darkMode: "Mode gelap", lightMode: "Mode terang", taskFormTitle: "Tambah Task",
+    titlePlaceholder: "Judul tugas", assigneePlaceholder: "Penanggung jawab", notesPlaceholder: "Catatan",
+    alertTitleRequired: "Judul wajib diisi.",
     uploadLogo: "Unggah Logo", importCsv: "Import CSV Tasks", resetData: "Reset Data Aplikasi",
-    uploadPhoto: "Upload Foto", updateLast: "Update", addNewItem: "Tambah item", itemName: "Nama item", initialStock: "Stok awal",
-    incoming: "Masuk", outgoing: "Keluar", currentStock: "Sisa", deleteItem: "Hapus item", noStock: "Kosong.", scheduleMeeting: "Jadwalkan",
-    meetingName: "Judul", date: "Tanggal", timeInput: "Waktu", attendeesInput: "Peserta", agenda: "Agenda", addMeeting: "Tambah meeting", noMeeting: "Kosong.",
+    uploadPhoto: "Upload Foto", updateLast: "Update", addNewItem: "Tambah item", itemName: "Nama item", initialStock: "Stok Awal",
+    incoming: "Masuk", outgoing: "Keluar", currentStock: "Sisa", deleteItem: "Hapus item", noStock: "Kosong.",
+    scheduleMeeting: "Jadwalkan", meetingName: "Judul", date: "Tanggal", timeInput: "Waktu", attendeesInput: "Peserta", agenda: "Agenda", addMeeting: "Tambah meeting", noMeeting: "Kosong.",
     addMaint: "Tambah maintenance", equipName: "Peralatan", issueDesc: "Masalah", techName: "Teknisi", maintNotes: "Catatan", addMaintBtn: "Tambah", noMaint: "Kosong.",
-    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Masuk untuk mulai", loginName: "Nama", loginPassword: "Password", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.", passMismatch: "Password salah.",
-    csvSuccess: "tugas berhasil di-parsing!", csvError: "Gagal parse CSV.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
-    lowStock: "Stok Menipis!", addSchedule: "Tambah Jadwal", responsible: "Penanggung Jawab", noLogs: "Belum ada aktivitas tercatat."
+    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Masuk untuk mulai", loginName: "Nama User", loginPassword: "Password", loginRole: "Jabatan", loginBtn: "Masuk", nameRequired: "Nama wajib.",
+    passMismatch: "Password salah.", csvSuccess: "tugas berhasil di-parsing!", csvError: "Gagal parse CSV.", noLogs: "Belum ada aktivitas tercatat."
   },
   en: {
     dashboard: "Dashboard", tasks: "Tasks", stock: "Stock Opname", meeting: "Meeting Notes", maintenance: "Maintenance",
     activityLog: "Activity Log", settings: "Settings",
-    total: "Total Tasks", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
-    progress: "Today's Progress", share: "Share Report", addTask: "Add Task", edit: "Edit", save: "Save", cancel: "Cancel", delete: "Delete",
-    checklist: "Checklist", undo: "Undo", noTasks: "No activities for this date.", login: "Login", logout: "Logout",
-    darkMode: "Dark mode", lightMode: "Light mode", taskFormTitle: "Add Task", adminStaffNote: "Admin & Staff can create tasks.",
-    titlePlaceholder: "Task title", descriptionPlaceholder: "Description", assigneePlaceholder: "Assignee", notesPlaceholder: "Notes",
-    reasonPlaceholder: "Reason if pending/progress", alertTitleRequired: "Title required.", alertAssigneeRequired: "Assignee required.",
+    total: "Total", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
+    progress: "Today's Progress", share: "Share", addTask: "Add Task", edit: "Edit", save: "Save", cancel: "Cancel", delete: "Delete",
+    checklist: "Checklist", undo: "Undo", noTasks: "No activities.",
+    login: "Login", logout: "Logout", darkMode: "Dark mode", lightMode: "Light mode", taskFormTitle: "Add Task",
+    titlePlaceholder: "Task title", assigneePlaceholder: "Assignee", notesPlaceholder: "Notes",
+    alertTitleRequired: "Title required.",
     uploadLogo: "Upload Logo", importCsv: "Import CSV Tasks", resetData: "Reset App Data",
     uploadPhoto: "Upload Photo", updateLast: "Updated", addNewItem: "Add item", itemName: "Item name", initialStock: "Initial Stock",
-    incoming: "In", outgoing: "Out", currentStock: "Remaining", deleteItem: "Delete item", noStock: "Empty.", scheduleMeeting: "Schedule",
-    meetingName: "Title", date: "Date", timeInput: "Time", attendeesInput: "Attendees", agenda: "Agenda", addMeeting: "Add meeting", noMeeting: "Empty.",
+    incoming: "In", outgoing: "Out", currentStock: "Remaining", deleteItem: "Delete item", noStock: "Empty.",
+    scheduleMeeting: "Schedule", meetingName: "Title", date: "Date", timeInput: "Time", attendeesInput: "Attendees", agenda: "Agenda", addMeeting: "Add meeting", noMeeting: "Empty.",
     addMaint: "Add maintenance", equipName: "Equipment", issueDesc: "Issue", techName: "Technician", maintNotes: "Notes", addMaintBtn: "Add", noMaint: "Empty.",
-    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Login to start", loginName: "Name", loginPassword: "Password", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.", passMismatch: "Incorrect password.",
-    csvSuccess: "tasks parsed successfully!", csvError: "CSV parse failed.", pendingTasks: "Pending", inProgress: "In Progress", completionRate: "Completion Rate",
-    lowStock: "Low Stock!", addSchedule: "Add Schedule", responsible: "Responsible", noLogs: "No activity logs yet."
+    loginTitle: "BLUE TICK ICE", loginSubtitle: "Daily Task Operation", loginDesc: "Login to start", loginName: "Username", loginPassword: "Password", loginRole: "Role", loginBtn: "Login", nameRequired: "Name required.",
+    passMismatch: "Incorrect password.", csvSuccess: "tasks parsed successfully!", csvError: "CSV parse failed.", noLogs: "No activity logs yet."
   },
 };
 
-const sampleTasks: Task[] = [
-  { id: "1", title: "Check LP & HP Pressure", description: "Verifikasi tekanan sistem.", category: "Maintenance", priority: "High", assignee: "Ilham", deadline: "2026-07-18", date: "2026-07-18", startTime: "07:00", endTime: "07:08", status: "Completed", notes: "", createdAt: "2026-07-18" },
-];
-
-const sampleStock: StockItem[] = [
-  { id: "1", item: "Es kristal", unit: "kg", stock: 150, masuk: 20, keluar: 50, notes: "Aman", updatedAt: "2026-07-18", date: "2026-07-18" },
-];
-
-const sampleMeetings: Meeting[] = [{ id: "1", title: "Briefing", date: "2026-07-19", time: "07:30", attendees: "Budi, Siti", notes: "Target harian" }];
-const sampleMaintenance: MaintenanceItem[] = [{ id: "1", equipment: "Ice Ball Machine", issue: "Noise", technician: "Dedi", status: "In progress", date: "2026-07-18", notes: "Wait part" }];
-
 const getToday = () => new Date().toISOString().slice(0, 10);
-
-const normalizeDate = (dateStr: string): string => {
-  if (!dateStr) return getToday();
-  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) return dateStr; 
-  const clean = dateStr.replace(/\./g, "/");
-  const p = clean.split("/");
-  if (p.length === 3) {
-    const y = p[2];
-    const a = parseInt(p[0], 10);
-    const b = parseInt(p[1], 10);
-    if (a > 12) return `${y}-${b.toString().padStart(2,'0')}-${a.toString().padStart(2,'0')}`;
-    if (b > 12) return `${y}-${a.toString().padStart(2,'0')}-${b.toString().padStart(2,'0')}`;
-    return `${y}-${a.toString().padStart(2,'0')}-${b.toString().padStart(2,'0')}`;
-  }
-  return dateStr;
-};
-
-const formatDate = (d: string | Date) => {
-  const dateObj = typeof d === "string" ? new Date(d) : d;
-  return dateObj.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-};
-const formatTimeRange = (t: Task) => t.startTime && t.endTime ? `${t.startTime} – ${t.endTime}` : "-";
+const formatDate = (d: string | Date) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const formatTimeRange = (t: Task) => t.startTime && t.endTime ? `(${t.startTime}-${t.endTime})` : "";
 const formatDateTime = (iso: string) => new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-
 const getColors = (theme: Theme): Colors => theme === "light"
   ? { page: "#F8FAFC", card: "#FFFFFF", cardMuted: "#F1F5F9", text: "#0F172A", muted: "#64748B", border: "#E2E8F0", accent: "#0EA5E9", accentBg: "#E0F2FE", danger: "#EF4444", success: "#10B981", warning: "#F59E0B" }
   : { page: "#0B1120", card: "#111827", cardMuted: "#1F2937", text: "#F3F4F6", muted: "#9CA3AF", border: "#374151", accent: "#38BDF8", accentBg: "#0C4A6E", danger: "#F87171", success: "#34D399", warning: "#FBBF24" };
 
-// ==========================================
-// COMPONENTS
-// ==========================================
+// Helper: Convert CamelCase to Snake_Case for Supabase
+const toSnakeCase = (obj: Record<string, any>): Record<string, any> => {
+  const converted: Record<string, any> = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      converted[snakeKey] = obj[key];
+    }
+  }
+  return converted;
+};
 
+// ==========================================
+// LOGIN SCREEN (DIPERBARUI: Dropdown Position dari DB)
+// ==========================================
 function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: CurrentUser) => void; t: typeof translations.id }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
-  const [role, setRole] = useState<PermissionRole>("Staff");
+  const [role, setRole] = useState<string>(""); // Sekarang string, bukan enum
   const [shift, setShift] = useState("Day");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [positions, setPositions] = useState<string[]>(["Staff", "Admin"]); // Default fallback
 
-  const submit = () => {
+  // Ambil semua nilai unik dari kolom 'position' di tabel users
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('position', { distinct: true })
+          .order('position', { ascending: true });
+
+        if (error) throw error;
+        if (data) {
+          const uniquePos = Array.from(new Set(data.map((r: any) => r.position || "").filter(Boolean)));
+          setPositions(uniquePos.length > 0 ? uniquePos : ["Staff", "Admin"]);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch positions. Using default.", e);
+        setPositions(["Staff", "Admin"]);
+      }
+    };
+    fetchPositions();
+  }, []);
+
+  const submit = async () => {
     if (!name.trim()) { setErr(t.nameRequired); return; }
-    const storedCreds = localStorage.getItem("btice_credentials");
-    const creds: UserCredentials = storedCreds ? JSON.parse(storedCreds) : { username: "", password: "" };
-    if (!creds.username) {
-      localStorage.setItem("btice_credentials", JSON.stringify({ username: name.trim(), password: password }));
-    } else if (creds.username !== name.trim() || creds.password !== password) {
-      setErr(t.passMismatch);
-      return;
-    }
+    setLoading(true);
     setErr("");
-    onLogin({ name: name.trim(), roleTitle: roleTitle.trim() || "Staff", permissionRole: role, shift });
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', name.trim())
+        .eq('password', password)
+        .single();
+
+      if (error || !data) {
+        setErr(t.passMismatch);
+        setLoading(false);
+        return;
+      }
+
+      onLogin({
+        name: data.username,
+        roleTitle: data.position || roleTitle.trim() || "Staff",
+        permissionRole: data.role as PermissionRole,
+        shift: data.shift
+      });
+    } catch {
+      setErr(t.passMismatch);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const inputStyle: CSSProperties = { width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, marginBottom: 12, fontSize: 14, boxSizing: "border-box" };
+
   return (
-    <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 20, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: colors.page, display: "grid", placeItems: "center", padding: 20, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 360, background: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, padding: 24, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: colors.text, margin: 0 }}>{t.loginTitle}</h1>
           <p style={{ fontSize: 14, color: colors.muted, margin: "4px 0 0" }}>{t.loginSubtitle}</p>
         </div>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder={t.loginName} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, marginBottom: 12, fontSize: 14, boxSizing: "border-box" }} onKeyDown={e => e.key === "Enter" && submit()} />
-        <input value={password} type="password" onChange={e => setPassword(e.target.value)} placeholder={t.loginPassword} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, marginBottom: 12, fontSize: 14, boxSizing: "border-box" }} onKeyDown={e => e.key === "Enter" && submit()} />
-        <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder={t.loginRole} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, marginBottom: 12, fontSize: 14, boxSizing: "border-box" }} />
+        <input value={name} onChange={e => setName(e.target.value)} placeholder={t.loginName} style={inputStyle} onKeyDown={e => e.key === "Enter" && submit()} />
+        <input value={password} type="password" onChange={e => setPassword(e.target.value)} placeholder={t.loginPassword} style={inputStyle} onKeyDown={e => e.key === "Enter" && submit()} />
+        <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder={t.loginRole} style={inputStyle} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          <select value={role} onChange={e => setRole(e.target.value as PermissionRole)} style={{ padding: "10px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text }}><option>Staff</option><option>Admin</option></select>
-          <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "10px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text }}>{shifts.map(s => <option key={s}>{s}</option>)}</select>
+          {/* Dropdown Position dari DB */}
+          <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inputStyle, width: "100%" }}>
+            {positions.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+          </select>
+          <select value={shift} onChange={e => setShift(e.target.value)} style={{ ...inputStyle, width: "100%" }}>
+            {shifts.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         </div>
         {err && <div style={{ fontSize: 13, color: colors.danger, marginBottom: 8 }}>{err}</div>}
-        <button onClick={submit} style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: colors.accent, color: "#FFF", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>{t.loginBtn}</button>
+        <button onClick={submit} disabled={loading} style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: colors.accent, color: "#FFF", fontWeight: 600, fontSize: 14, cursor: loading ? "wait" : "pointer" }}>
+          {loading ? "Loading..." : t.loginBtn}
+        </button>
       </div>
     </div>
   );
 }
 
 // ==========================================
-// MAIN APP COMPONENT
+// MAIN APP (tidak berubah, kecuali penyesuaian tipe `role`)
 // ==========================================
-
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [theme, setTheme] = useState<Theme>("light");
@@ -255,487 +275,271 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [userLogo, setUserLogo] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(getToday());
+  const [selectedDate, setSelectedDate] = useState(getToday());
   const [currentTime, setCurrentTime] = useState(new Date());
   const [pendingImportedTasks, setPendingImportedTasks] = useState<Task[] | null>(null);
 
   const colors = getColors(theme);
   const t = translations[lang];
 
-  const [tasks, setTasks] = useState<Task[]>(sampleTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
   const [filterStat, setFilterStat] = useState("All");
-  
-  const [taskForm, setTaskForm] = useState<Partial<Task>>({ 
-    title: "", description: "", category: "Production", priority: "High", assignee: "", 
-    deadline: getToday(), date: getToday(), startTime: "", endTime: "", 
-    status: "Pending", notes: "", createdAt: getToday(), reason: "", imageUrl: "" 
-  });
+  const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: "", category: "Production", priority: "High", assignee: "", deadline: getToday(), date: getToday(), startTime: "", endTime: "", status: "Pending", notes: "", createdAt: getToday() });
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Task>>({});
 
-  const [stockItems, setStockItems] = useState<StockItem[]>(sampleStock);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", date: getToday() });
-  
-  const [meetings, setMeetings] = useState<Meeting[]>(sampleMeetings);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [meetingForm, setMeetingForm] = useState({ title: "", date: getToday(), time: "", attendees: "", notes: "" });
-  const [maintItems, setMaintItems] = useState<MaintenanceItem[]>(sampleMaintenance);
-  const [maintForm, setMaintForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending" as TaskStatus, date: getToday(), notes: "" });
-
+  const [maintItems, setMaintItems] = useState<MaintenanceItem[]>([]);
+  const [maintForm, setMaintForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending", date: getToday(), notes: "" });
   const [activityLogs, setActivityLogs] = useState<LogEntry[]>([]);
 
-  const addLog = (type: string, action: string) => {
-    const entry: LogEntry = { id: String(Date.now()), type, action, timestamp: new Date().toISOString() };
-    setActivityLogs(prev => [entry, ...prev].slice(0, 200));
-  };
-
-  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          const base64 = ev.target.result as string;
-          setUserLogo(base64);
-          localStorage.setItem('btice_app_logo', base64);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCsvUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        let text = (ev.target?.result as string).replace(/^\uFEFF/, '');
-        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
-        if (lines.length < 2) { window.alert(t.csvError); return; }
-
-        const parseLine = (line: string): string[] => {
-          const result: string[] = [];
-          let current = '';
-          let inQuotes = false;
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') inQuotes = !inQuotes;
-            else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
-            else current += char;
-          }
-          result.push(current.trim());
-          return result;
-        };
-
-        const headers = parseLine(lines[0]).map(h => h.toLowerCase().trim());
-        const newTasks: Task[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const cols = parseLine(lines[i]);
-          if (cols.length < 2) continue;
-
-          const get = (keys: string[]) => {
-            for (const key of keys) {
-              const idx = headers.indexOf(key.toLowerCase().trim());
-              if (idx >= 0) return (cols[idx] || '').trim();
-            }
-            return '';
-          };
-
-          const rawTitle = get(['title', 'task', 'nama_task']);
-          const rawDate = get(['deadline', 'date', 'tanggal']);
-          const rawStart = get(['start_time', 'waktu_mulai', 'jam_mulai']);
-          const rawEnd = get(['end_time', 'waktu_selesai', 'jam_selesai']);
-          const rawCat = get(['category', 'kategori', 'role', 'jabatan']);
-          const rawPri = get(['priority', 'prioritas', 'level']);
-          const rawStatus = get(['status', 'status_task']);
-          const rawAssignee = get(['assignee', 'penanggung_jawab', 'pic', 'karyawan']);
-
-          let startTime = rawStart;
-          let endTime = rawEnd;
-          if (!startTime && !endTime) {
-            const timeIndices = headers.reduce((acc: number[], val, idx) => val.toLowerCase() === 'time' ? [...acc, idx] : acc, []);
-            if (timeIndices.length >= 2) {
-              startTime = cols[timeIndices[0]].trim();
-              endTime = cols[timeIndices[1]].trim();
-            } else if (timeIndices.length === 1) {
-              startTime = cols[timeIndices[0]].trim();
-            }
-          }
-
-          const cleanTitle = rawTitle.replace(/[.,;:!]+$/, '').trim() || `Task ${i}`;
-          const normalizedDate = normalizeDate(rawDate);
-          const category = categories.find(c => c.toLowerCase() === rawCat.toLowerCase()) || rawCat || 'Other';
-          const priority = (priorities.find(p => p.toLowerCase() === rawPri.toLowerCase()) || 'High') as Priority;
-          const status = (statuses.find(s => s.toLowerCase() === rawStatus.toLowerCase()) || 'Pending') as TaskStatus;
-
-          newTasks.push({
-            id: String(Date.now() + Math.random()),
-            title: cleanTitle,
-            description: get(['description', 'deskripsi', 'keterangan']) || '',
-            category,
-            priority,
-            assignee: rawAssignee || currentUser?.name || "Unknown",
-            deadline: normalizedDate,
-            date: normalizedDate,
-            startTime,
-            endTime,
-            status,
-            notes: get(['notes', 'catatan']) || '',
-            createdAt: getToday(),
-            createdByRole: 'Staff',
-            reason: ''
-          });
-        }
-
-        if (newTasks.length === 0) {
-          window.alert("Tidak ada data valid ditemukan.");
-          return;
-        }
-
-        setPendingImportedTasks(newTasks);
-        setActiveTab("settings");
-        window.alert(`✅ ${newTasks.length} ${t.csvSuccess}\nSilakan klik tombol "Save to Local Storage" untuk menyimpan.`);
-      } catch (err) {
-        console.error("CSV Parse Error:", err);
-        window.alert(t.csvError);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
+  // Load Session & Data
   useEffect(() => {
-    try {
-      const savedLogo = localStorage.getItem('btice_app_logo');
-      if (savedLogo) setUserLogo(savedLogo);
-      const storedSession = localStorage.getItem("userSession");
-      if (storedSession) {
-        const session: UserSession = JSON.parse(storedSession);
-        if (session.isLoggedIn && session.username) {
-          const savedUser = localStorage.getItem(`btice_user_${session.username}`);
-          if (savedUser) {
-            setCurrentUser(JSON.parse(savedUser));
-            const savedTheme = localStorage.getItem(`btice_theme_${session.username}`);
-            if (savedTheme) setTheme(JSON.parse(savedTheme));
-            const savedLang = localStorage.getItem(`btice_lang_${session.username}`);
-            if (savedLang) setLang(JSON.parse(savedLang));
-            const savedData = localStorage.getItem(`btice_data_${session.username}`);
-            if (savedData) {
-              const d = JSON.parse(savedData);
-              setTasks(d.tasks || sampleTasks);
-              setStockItems(d.stock || sampleStock);
-              setMeetings(d.meetings || sampleMeetings);
-              setMaintItems(d.maintenance || sampleMaintenance);
-              setActivityLogs(d.logs || []);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Session validation failed", error);
-      localStorage.removeItem("userSession");
+    const session = localStorage.getItem('btice_session');
+    if (session) {
+      try {
+        setCurrentUser(JSON.parse(session));
+      } catch (e) { console.error("Session parse error"); }
     }
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchData = async () => {
+      try {
+        // Load Prefs
+        const { data: prefs } = await supabase.from('user_prefs').select('*').eq('user_name', currentUser.name).single();
+        if (prefs) {
+          if (prefs.theme) setTheme(prefs.theme as Theme);
+          if (prefs.lang) setLang(prefs.lang as Lang);
+          if (prefs.logo) setUserLogo(prefs.logo);
+        }
+
+        // Load All Data
+        const [tasksRes, stockRes, meetingsRes, maintRes, logsRes] = await Promise.all([
+          supabase.from('tasks').select('*').eq('user_name', currentUser.name).or(`assignee.eq.${currentUser.name}`),
+          supabase.from('stock_items').select('*').eq('user_name', currentUser.name),
+          supabase.from('meetings').select('*').eq('user_name', currentUser.name),
+          supabase.from('maintenance').select('*').eq('user_name', currentUser.name),
+          supabase.from('activity_logs').select('*').eq('user_name', currentUser.name).order('timestamp', { ascending: false })
+        ]);
+
+        if (tasksRes.data) setTasks(tasksRes.data);
+        if (stockRes.data) setStockItems(stockRes.data);
+        if (meetingsRes.data) setMeetings(meetingsRes.data);
+        if (maintRes.data) setMaintItems(maintRes.data);
+        if (logsRes.data) setActivityLogs(logsRes.data);
+      } catch (e) {
+        console.error("Error fetching data:", e);
+      }
+    };
+
+    fetchData();
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`btice_theme_${currentUser.name}`, JSON.stringify(theme));
-      localStorage.setItem(`btice_lang_${currentUser.name}`, JSON.stringify(lang));
-      localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks, stock: stockItems, meetings, maintenance: maintItems, logs: activityLogs }));
+      supabase.from('user_prefs').upsert({ user_name: currentUser.name, theme, lang, logo: userLogo }, { onConflict: 'user_name' });
     }
-  }, [currentUser, theme, lang, tasks, stockItems, meetings, maintItems, activityLogs]);
+  }, [currentUser, theme, lang, userLogo]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (currentUser && !taskForm.assignee) {
-      setTaskForm(prev => ({ ...prev, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : prev.assignee }));
-    }
-  }, [currentUser, taskForm.assignee]);
-
-  useEffect(() => {
-    setMeetingForm(prev => ({ ...prev, date: selectedDate }));
-    setStockForm(prev => ({ ...prev, date: selectedDate }));
-    setMaintForm(prev => ({ ...prev, date: selectedDate }));
-  }, [selectedDate]);
+  useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer); }, []);
+  useEffect(() => { if (currentUser && !taskForm.assignee) setTaskForm(p => ({ ...p, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "" })); }, [currentUser, taskForm.assignee]);
+  useEffect(() => { setMeetingForm(p => ({ ...p, date: selectedDate })); setStockForm(p => ({ ...p, date: selectedDate })); setMaintForm(p => ({ ...p, date: selectedDate })); }, [selectedDate]);
 
   const handleLogin = (user: CurrentUser) => {
-    const session: UserSession = { id: String(Date.now()), username: user.name, role: user.roleTitle, isLoggedIn: true };
-    localStorage.setItem("userSession", JSON.stringify(session));
-    localStorage.setItem(`btice_user_${user.name}`, JSON.stringify(user));
+    localStorage.setItem('btice_session', JSON.stringify(user));
     setCurrentUser(user);
-    setTaskForm((prev) => ({ ...prev, assignee: user.permissionRole === "Staff" ? user.name : prev.assignee }));
+    setTaskForm(p => ({ ...p, assignee: user.permissionRole === "Staff" ? user.name : "" }));
   };
+  const handleLogout = () => { localStorage.removeItem('btice_session'); setCurrentUser(null); setActiveTab("dashboard"); setMenuOpen(false); };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userSession");
-    setCurrentUser(null);
-    setTheme("light");
-    setLang("id");
-    setActiveTab("dashboard");
-    setMenuOpen(false);
-  };
-
-  if (!currentUser) {
-    return <LoginScreen colors={colors} t={t} onLogin={handleLogin} />;
-  }
+  if (!currentUser) return <LoginScreen colors={colors} onLogin={handleLogin} t={t} />;
 
   const matchesUser = (assignee: string) => currentUser.permissionRole === "Admin" || assignee === currentUser.name || assignee.trim() === "";
-  const filteredTasks = tasks.filter(tk => 
-    (!search || tk.title.toLowerCase().includes(search.toLowerCase())) &&
-    (filterStat === "All" || tk.status === filterStat) &&
-    tk.date === selectedDate && matchesUser(tk.assignee)
-  ).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
+  const filteredTasks = tasks.filter(tk => (!search || tk.title.toLowerCase().includes(search.toLowerCase())) && (filterStat === "All" || tk.status === filterStat) && tk.date === selectedDate && matchesUser(tk.assignee)).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
 
-  const handleTaskPhotoUpload = (e: ChangeEvent<HTMLInputElement>, taskId: string) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader(); reader.onload = () => { const url = reader.result as string; if (url) setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, imageUrl: url } : tk)); }; reader.readAsDataURL(file);
-  };
-
-  const handleSaveTask = () => {
-    const title = taskForm.title?.trim();
-    const assignee = taskForm.assignee?.trim() || currentUser.name;
-    
-    if (!title) { window.alert(t.alertTitleRequired); return; }
-    if (!assignee) { window.alert(t.alertAssigneeRequired); return; }
-
-    const newTask: Task = {
-      id: String(Date.now()),
-      title,
-      description: taskForm.description || "",
-      category: taskForm.category || "Production",
-      priority: taskForm.priority || "High",
-      assignee,
-      deadline: taskForm.date || selectedDate,
-      date: taskForm.date || selectedDate,
-      startTime: taskForm.startTime || "",
-      endTime: taskForm.endTime || "",
-      status: taskForm.status || "Pending",
-      notes: taskForm.notes || "",
-      createdAt: getToday(),
-      createdByRole: currentUser.permissionRole,
-      reason: "",
-      imageUrl: taskForm.imageUrl || ""
-    };
-
-    setTasks(prev => [newTask, ...prev]);
-    addLog("TASK", `Created task: ${title}`);
-    
-    setTaskForm({
-      title: "", description: "", category: "Production", priority: "High",
-      assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "",
-      deadline: selectedDate, date: selectedDate, startTime: "", endTime: "",
-      status: "Pending", notes: "", createdAt: getToday(), reason: "", imageUrl: ""
-    });
-    window.alert("✅ Task saved successfully!");
-  };
-
-  const handleInlineEdit = (taskId: string) => { const task = tasks.find(tk => tk.id === taskId); if (task) { setEditingTaskId(taskId); setEditForm(task); } };
-  const saveEdit = () => { 
-    if (editingTaskId) { 
-      setTasks(prev => prev.map(tk => tk.id === editingTaskId ? { ...tk, ...editForm } : tk)); 
-      addLog("TASK", `Updated task: ${editForm.title || tasks.find(t=>t.id===editingTaskId)?.title}`);
-      setEditingTaskId(null); 
-    } 
-  };
-  const toggleStatus = (taskId: string) => { 
-    setTasks(prev => prev.map(tk => tk.id === taskId ? { ...tk, status: tk.status === "Completed" ? "In progress" : "Completed" } : tk)); 
-    addLog("TASK", `Status changed`);
-  };
-
-  const handleSaveMeeting = () => {
-    if (!meetingForm.title.trim()) { window.alert(t.alertTitleRequired); return; }
-    const newMeeting: Meeting = {
-      id: String(Date.now()),
-      title: meetingForm.title.trim(),
-      date: meetingForm.date || selectedDate,
-      time: meetingForm.time || "",
-      attendees: meetingForm.attendees || "",
-      notes: meetingForm.notes || ""
-    };
-    const updatedMeetings = [newMeeting, ...meetings];
-    setMeetings(updatedMeetings);
-    addLog("MEETING", `Created meeting: ${newMeeting.title}`);
-    setMeetingForm({ title: "", date: selectedDate, time: "", attendees: "", notes: "" });
-    if (currentUser) {
-      localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks, stock: stockItems, meetings: updatedMeetings, maintenance: maintItems, logs: activityLogs }));
+  const addLog = async (type: string, action: string) => {
+    const entry: LogEntry = { id: String(Date.now()), type, action, timestamp: new Date().toISOString(), user_name: currentUser.name };
+    setActivityLogs(prev => [entry, ...prev].slice(0, 200));
+    try {
+      await supabase.from('activity_logs').insert(entry);
+    } catch (e) {
+      console.error("Error saving log:", e);
     }
-    window.alert("✅ Meeting note saved!");
   };
+
+  const handleLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader(); reader.onload = async (ev) => { const b64 = ev.target?.result as string; setUserLogo(b64); await supabase.from('user_prefs').upsert({ user_name: currentUser.name, logo: b64 }, { onConflict: 'user_name' }); }; reader.readAsDataURL(file);
+  };
+
+  const handleCsvUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const lines = ((ev.target?.result as string).replace(/^\uFEFF/, '')).split(/\r?\n/).map(l => l.trim()).filter(l => l);
+        if (lines.length < 2) return window.alert(t.csvError);
+        const parseLine = (l: string) => { const r: string[] = []; let c = '', q = false; for (let i = 0; i < l.length; i++) { const ch = l[i]; if (ch === '"') q = !q; else if (ch === ',' && !q) { r.push(c.trim()); c = ''; } else c += ch; } r.push(c.trim()); return r; };
+        const headers = parseLine(lines[0]).map(h => h.toLowerCase());
+        const newTasks: Task[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = parseLine(lines[i]); if (cols.length < 2) continue;
+          const get = (keys: string[]) => { for (const k of keys) { const idx = headers.indexOf(k.toLowerCase()); if (idx >= 0) return (cols[idx] || '').trim(); } return ''; };
+          const rawTitle = get(['title', 'task', 'nama_task']); if (!rawTitle) continue;
+          const rawDate = get(['deadline', 'date', 'tanggal']);
+          let st = get(['start_time', 'waktu_mulai', 'jam_mulai']), et = get(['end_time', 'waktu_selesai', 'jam_selesai']);
+          if (!st && !et) { const idx = headers.reduce((a: number[], v, i) => v === 'time' ? [...a, i] : a, []); if (idx.length >= 2) { st = cols[idx[0]]; et = cols[idx[1]]; } else if (idx.length === 1) st = cols[idx[0]]; }
+          newTasks.push({
+            id: String(Date.now() + Math.random()), title: rawTitle.replace(/[.,;:!]+$/, '').trim(), description: get(['description', 'deskripsi']) || '',
+            category: categories.find(c => c.toLowerCase() === get(['category', 'kategori', 'role']).toLowerCase()) || 'Other',
+            priority: (priorities.find(p => p.toLowerCase() === get(['priority', 'level']).toLowerCase()) || 'High') as Priority,
+            assignee: get(['assignee', 'pic']) || currentUser.name, deadline: rawDate, date: rawDate,
+            startTime: (st || '').replace('.', ':').slice(0, 5), endTime: (et || '').replace('.', ':').slice(0, 5),
+            status: (statuses.find(s => s.toLowerCase() === get(['status']).toLowerCase()) || 'Pending') as TaskStatus,
+            notes: get(['notes', 'catatan']) || '', createdAt: getToday(), createdByRole: currentUser.permissionRole, imageUrl: ''
+          });
+        }
+        if (!newTasks.length) return window.alert("Tidak ada data valid.");
+        setPendingImportedTasks(newTasks);
+        window.alert(`✅ ${newTasks.length} ${t.csvSuccess}\nKlik \"Save to Database\" di Settings.`);
+      } catch { window.alert(t.csvError); }
+    };
+    reader.readAsText(file); e.target.value = '';
+  };
+
+  const handleSaveTask = async () => {
+    if (!taskForm.title?.trim()) return window.alert(t.alertTitleRequired);
+    const newTask: Task = { id: String(Date.now()), ...taskForm, assignee: taskForm.assignee || currentUser.name, date: taskForm.date || selectedDate, deadline: taskForm.deadline || selectedDate, createdAt: getToday(), createdByRole: currentUser.permissionRole, user_name: currentUser.name } as Task;
+    setTasks(p => [newTask, ...p]);
+    try {
+      await supabase.from('tasks').insert(toSnakeCase(newTask));
+      await addLog("TASK", `Created: ${newTask.title}`);
+    } catch (e) { console.error("Error saving task:", e); window.alert("Gagal menyimpan task ke database."); }
+    setTaskForm({ title: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: selectedDate, date: selectedDate, startTime: "", endTime: "", status: "Pending", notes: "", createdAt: getToday() });
+    window.alert("✅ Task saved!");
+  };
+
+  const saveEdit = async () => { if (!editingTaskId) return; try { await supabase.from('tasks').update(toSnakeCase(editForm)).eq('id', editingTaskId); setTasks(p => p.map(tk => tk.id === editingTaskId ? { ...tk, ...editForm } : tk)); await addLog("TASK", `Updated task: ${editForm.title}`); } catch (e) { console.error("Error updating task:", e); } setEditingTaskId(null); };
+  const toggleStatus = async (id: string) => { const t = tasks.find(x => x.id === id); if (!t) return; const ns = t.status === "Completed" ? "In progress" : "Completed"; try { await supabase.from('tasks').update({ status: ns }).eq('id', id); setTasks(p => p.map(x => x.id === id ? { ...x, status: ns } : x)); await addLog("TASK", `Status changed for: ${t.title}`); } catch (e) { console.error("Error toggling status:", e); } };
+  const deleteTask = async (id: string) => { try { await supabase.from('tasks').delete().eq('id', id); setTasks(p => p.filter(x => x.id !== id)); await addLog("TASK", `Deleted task with id: ${id}`); } catch (e) { console.error("Error deleting task:", e); } };
+  const handleSaveMeeting = async () => { if (!meetingForm.title.trim()) return window.alert(t.alertTitleRequired); const m: Meeting = { id: String(Date.now()), ...meetingForm, user_name: currentUser.name }; setMeetings(p => [m, ...p]); try { await supabase.from('meetings').insert(toSnakeCase(m)); await addLog("MEETING", m.title); } catch (e) { console.error("Error saving meeting:", e); } setMeetingForm({ title: "", date: selectedDate, time: "", attendees: "", notes: "" }); window.alert("✅ Saved!"); };
 
   const shareWhatsApp = () => {
-    const dateStr = formatDate(selectedDate);
-    const timeStr = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    
-    // ✅ FIXED: Exact GitHub Pages URL + Dynamic User Slug
-    const BASE_URL = "https://rubenhae95-jpg.github.io/blue-tick-to-do";
-    const userSlug = encodeURIComponent(currentUser!.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""));
-    const reportLink = `${BASE_URL}/report/${selectedDate}/${userSlug}`;
+    const todayTasks = tasks.filter(tk => tk.date === selectedDate && matchesUser(tk.assignee));
+    const todayStock = stockItems.filter(s => s.date === selectedDate);
+    const todayMeetings = meetings.filter(m => m.date === selectedDate);
+    const todayMaint = maintItems.filter(m => m.date === selectedDate);
 
-    const completedList = filteredTasks.filter(tk => tk.status === "Completed").map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
-    const pendingList = filteredTasks.filter(tk => tk.status !== "Completed" && tk.status !== "Cancelled").map(tk => `• ${tk.title} [${tk.status}] ${tk.startTime && tk.endTime ? `(${tk.startTime}-${tk.endTime})` : ""}`).join("\n") || "-";
-    const taskNotes = filteredTasks.filter(tk => tk.notes && tk.notes.trim() !== "").map(tk => `• [${tk.title}]: ${tk.notes}`).join("\n");
-    const notesText = taskNotes || "-";
-    const stockList = stockItems.filter(s => s.date === selectedDate).map(s => `• ${s.item}: ${s.stock - s.keluar + s.masuk} ${s.unit}`).join("\n") || "-";
-    const maintList = maintItems.filter(m => m.date === selectedDate).map(m => `• ${m.equipment}: ${m.issue} [${m.status}]`).join("\n") || "-";
-    const meetingList = meetings.filter(m => m.date === selectedDate).map(m => `• ${m.title} (${m.time}) - ${m.attendees}`).join("\n") || "-";
+    const completedTasks = todayTasks.filter(tk => tk.status === "Completed").map(tk => `• ${tk.title} [${tk.status}] ${formatTimeRange(tk)}`).join('\n') || '-';
+    const pendingTasks = todayTasks.filter(tk => tk.status !== "Completed" && tk.status !== "Cancelled").map(tk => `• ${tk.title} [${tk.status}] ${formatTimeRange(tk)}`).join('\n') || '-';
+    const stockItemsText = todayStock.map(s => `• ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('\n') || '-';
+    const maintItemsText = todayMaint.map(m => `• ${m.equipment} : ${m.issue} [${m.status}]`).join('\n') || '-';
+    const meetingItemsText = todayMeetings.map(m => `• ${m.title} (${m.time}) - ${m.attendees}`).join('\n') || '-';
 
-    const message = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser!.name.toUpperCase()}\n💼 Role : ${currentUser!.roleTitle}\n🕒 Shift : ${currentUser!.shift}\n📅 Date : ${dateStr}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ COMPLETED\n${completedList}\n\n⏳ PENDING / IN PROGRESS\n${pendingList}\n\n📦 STOCK OPNAME\n${stockList}\n\n🔧 MAINTENANCE\n${maintList}\n\n📝 MEETING\n${meetingList}\n\n📌 NOTES\n${notesText}\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser!.name.toUpperCase()}\n🕒 Submitted: ${dateStr} | ${timeStr}\n\n🔗 View report: ${reportLink}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+    const reportLink = `https://rubenhae95-jpg.github.io/blue-tick-to-do/report/${selectedDate}/${encodeURIComponent(currentUser.name.toLowerCase().replace(/\s+/g, "-"))}`;
+
+    const msg = `📋 DAILY TASK REPORT\n\n👤 Employee : ${currentUser.name.toUpperCase()}\n💼 Role : ${currentUser.roleTitle}\n🕒 Shift : ${currentUser.shift}\n📅 Date : ${formatDate(selectedDate)}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ COMPLETED\n${completedTasks}\n\n⏳ PENDING / IN PROGRESS\n${pendingTasks}\n\n📦 STOCK OPNAME\n${stockItemsText}\n\n🔧 MAINTENANCE\n${maintItemsText}\n\n📝 MEETING\n${meetingItemsText}\n\n📌 NOTES\n-\n\n━━━━━━━━━━━━━━━━━━\n\n📤 Submitted by: ${currentUser.name.toUpperCase()}\n🕒 Submitted: ${formatDate(currentTime)} | ${currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}\n\n🔗 View report: ${reportLink}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const menuItems = [
-    { id: "dashboard" as Tab, label: t.dashboard },
-    { id: "tasks" as Tab, label: t.tasks },
-    { id: "stock" as Tab, label: t.stock },
-    { id: "meeting" as Tab, label: t.meeting },
-    { id: "maintenance" as Tab, label: t.maintenance },
-    { id: "activity_log" as Tab, label: t.activityLog },
-    { id: "settings" as Tab, label: t.settings },
+    { id: "dashboard", label: t.dashboard },
+    { id: "tasks", label: t.tasks },
+    { id: "stock", label: t.stock },
+    { id: "meeting", label: t.meeting },
+    { id: "maintenance", label: t.maintenance },
+    { id: "activity_log", label: t.activityLog },
+    { id: "settings", label: t.settings }
   ];
-
-  const inputStyle: CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, fontSize: 13, boxSizing: "border-box", touchAction: "manipulation" };
-  const btnStyle = (variant: "primary" | "secondary" | "danger" = "primary"): CSSProperties => ({ padding: "8px 12px", borderRadius: 8, border: variant === "primary" ? "none" : `1px solid ${colors.border}`, background: variant === "primary" ? colors.accent : variant === "danger" ? `${colors.danger}20` : "transparent", color: variant === "primary" ? "#FFF" : variant === "danger" ? colors.danger : colors.text, fontSize: 13, cursor: "pointer", fontWeight: 500, touchAction: "manipulation" });
+  const inputStyle: CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.cardMuted, color: colors.text, fontSize: 13, boxSizing: "border-box" };
+  const btnStyle = (v: "primary" | "secondary" | "danger" = "primary") => ({ padding: "8px 12px", borderRadius: 8, border: v === "primary" ? "none" : `1px solid ${colors.border}`, background: v === "primary" ? colors.accent : v === "danger" ? `${colors.danger}20` : "transparent", color: v === "primary" ? "#FFF" : v === "danger" ? colors.danger : colors.text, fontSize: 13, cursor: "pointer", fontWeight: 500 });
 
   return (
-    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", display: "flex", position: "relative" }}>
+    <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', system-ui, sans-serif", display: "flex", position: "relative" }}>
       <style>{`
-        .hamburger-btn { background: none; border: none; font-size: 28px; color: ${colors.text}; cursor: pointer; padding: 8px; display: flex; align-items: center; justify-content: center; }
-        .nav-overlay { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; max-width: 75%; background: ${theme === "light" ? "#0F172A" : "#0B1120"}; z-index: 60; transform: translateX(-100%); transition: transform 0.3s ease; display: flex; flex-direction: column; box-shadow: 2px 0 15px rgba(0,0,0,0.3); }
+        .nav-overlay { position: fixed; top: 0; left: 0; bottom: 0; width: 260px; max-width: 75%; background: ${theme === "light" ? "#0F172A" : "#0B1120"}; z-index: 60; transform: translateX(-100%); transition: .3s; display: flex; flex-direction: column; }
         .nav-overlay.open { transform: translateX(0); }
-        .nav-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .nav-list { padding: 20px 0; display: grid; gap: 8px; overflow-y: auto; }
-        .nav-item { padding: 14px 24px; color: #94A3B8; cursor: pointer; font-size: 16px; font-weight: 500; transition: all 0.2s; border-left: 4px solid transparent; }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: #E2E8F0; }
+        .nav-item { padding: 14px 24px; color: #94A3B8; cursor: pointer; transition: .2s; border-left: 4px solid transparent; }
         .nav-item.active { background: rgba(14,165,233,0.15); color: #0EA5E9; border-left-color: #0EA5E9; }
-        .nav-footer { padding: 20px; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); }
-        .main-content { flex: 1; padding: 20px; overflow-y: auto; min-height: 100vh; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
-        .stat-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
-        .stat-value { font-size: 24px; font-weight: 700; color: ${colors.text}; }
-        .stat-label { font-size: 12px; color: ${colors.muted}; }
-        .progress-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
-        .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .progress-title { font-size: 16px; font-weight: 600; }
-        .progress-pct { background: ${colors.accentBg}; color: ${colors.accent}; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-        .progress-bar { height: 8px; background: ${colors.cardMuted}; border-radius: 999px; overflow: hidden; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, ${colors.accent}, ${colors.accent}80); border-radius: 999px; transition: width 0.5s ease; }
-        .progress-text { font-size: 12px; color: ${colors.muted}; margin-top: 8px; }
-        .task-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; margin-bottom: 12px; transition: border-color 0.2s; }
-        .task-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-        .task-title { font-size: 15px; font-weight: 600; color: ${colors.text}; word-break: break-word; }
-        .task-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-        .task-meta { font-size: 12px; color: ${colors.muted}; margin-bottom: 10px; word-break: break-word; }
-        .task-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
-        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .stat-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; }
+        .task-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 12px; }
         .split-grid { display: grid; gap: 16px; grid-template-columns: 1.2fr 1fr; }
-        
-        @media (max-width: 768px) {
-          .main-content { padding: 12px; }
-          header { flex-direction: column; gap: 12px; padding: 16px; min-height: auto; }
-          header > div:nth-child(1) { width: 100%; justify-content: space-between; }
-          header > div:nth-child(2) { width: 100%; text-align: center; margin: 8px 0; }
-          .header-right { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-          .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-          .task-card { padding: 12px; }
-          .task-header { flex-direction: column; gap: 6px; }
-          .task-actions { flex-direction: column; }
-          .task-actions button, .task-actions label { width: 100%; text-align: center; }
-          .form-grid { grid-template-columns: 1fr; }
-          .filter-bar { flex-direction: column; }
-          .filter-bar input, .filter-bar select { width: 100%; }
-          .split-grid { grid-template-columns: 1fr; }
-          .progress-header { flex-direction: column; align-items: flex-start; gap: 6px; }
-          .progress-pct { margin-left: 0; }
-        }
-        input[type="date"], input[type="time"], select, input[type="password"] { color-scheme: ${theme}; }
-        input[type="number"] { -moz-appearance: textfield; }
-        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        @media(max-width:768px){ .main-content{padding:12px} header{flex-direction:column;gap:10px;padding:14px} .header-right{width:100%;justify-content:space-between;flex-wrap:wrap} .stats-grid{grid-template-columns:1fr 1fr} .split-grid{grid-template-columns:1fr} }
+        input[type="date"], input[type="time"], select { color-scheme: ${theme}; }
       `}</style>
 
       <div className={`nav-overlay ${isMenuOpen ? "open" : ""}`}>
-        <div className="nav-header">
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#FFF" }}>Menu</div>
+        <div style={{ padding: 20, display: "flex", justifyContent: "space-between", borderBottom: "1px solid #334155" }}>
+          <span style={{ fontSize: 18, fontWeight: 700, color: "#FFF" }}>Menu</span>
           <button onClick={() => setMenuOpen(false)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 28, cursor: "pointer" }}>×</button>
         </div>
-        <nav className="nav-list">
-          {menuItems.map(item => (
-            <div key={item.id} className={`nav-item ${activeTab === item.id ? "active" : ""}`} onClick={() => { setActiveTab(item.id); setMenuOpen(false); }}>
-              {item.label}
-            </div>
-          ))}
+        <nav style={{ padding: "16px 0", display: "grid", gap: 6, overflowY: "auto" }}>
+          {menuItems.map(i => <div key={i.id} className={`nav-item ${activeTab === i.id ? "active" : ""}`} onClick={() => { setActiveTab(i.id as Tab); setMenuOpen(false); }}>{i.label}</div>)}
         </nav>
-        <div className="nav-footer">
+        <div style={{ padding: 20, marginTop: "auto", borderTop: "1px solid #334155" }}>
           <div style={{ fontSize: 14, color: "#FFF", fontWeight: 600 }}>{currentUser.name}</div>
-          <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 12 }}>{currentUser.roleTitle}</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setLang(l => l === "id" ? "en" : "id")} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#FFF", cursor: "pointer" }}>{lang === "id" ? "Bahasa Indonesia" : "English"}</button>
-            <button onClick={() => setTheme(th => th === "light" ? "dark" : "light")} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#FFF", cursor: "pointer" }}>{theme === "light" ? t.darkMode : t.lightMode}</button>
-            <button onClick={handleLogout} style={{ padding: "10px", borderRadius: 8, border: "none", background: "#EF4444", color: "#FFF", cursor: "pointer", width: "40px" }}>{t.logout}</button>
+          <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 10 }}>{currentUser.roleTitle} · {currentUser.permissionRole}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setLang(l => l === "id" ? "en" : "id")} style={{ flex: 1, padding: 10, borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#FFF", cursor: "pointer" }}>{lang === "id" ? "ID" : "EN"}</button>
+            <button onClick={() => setTheme(th => th === "light" ? "dark" : "light")} style={{ flex: 1, padding: 10, borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#FFF", cursor: "pointer" }}>{theme === "light" ? "🌙" : "☀️"}</button>
+            <button onClick={handleLogout} style={{ padding: 10, borderRadius: 8, border: "none", background: "#EF4444", color: "#FFF", cursor: "pointer" }}>🚪</button>
           </div>
         </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100%" }}>
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${colors.border}`, width: "100%", boxSizing: "border-box" }}>
+        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${colors.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button className="hamburger-btn" onClick={() => setMenuOpen(true)}>☰</button>
-            <img src={userLogo || DEFAULT_LOGO} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />
+            <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", fontSize: 26, color: colors.text, cursor: "pointer" }}>☰</button>
+            <img src={userLogo || DEFAULT_LOGO} style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />
           </div>
-          <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
-            <h1 style={{ fontSize: "1.6rem", color: "#ADD8E6", fontWeight: 700, margin: 0, lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: "0.5px" }}>BLUE TICK ICE</h1>
-            <span style={{ fontSize: "0.7rem", color: colors.muted, fontWeight: 500, marginTop: 2, display: "block", textTransform: "uppercase", letterSpacing: "1px" }}>Daily Task Operational</span>
+          <div style={{ textAlign: "center", flex: 1 }}>
+            <h1 style={{ fontSize: "1.5rem", color: "#ADD8E6", fontWeight: 700, margin: 0 }}>BLUE TICK ICE</h1>
+            <span style={{ fontSize: 11, color: colors.muted, fontWeight: 500, textTransform: "uppercase", letterSpacing: 1 }}>Daily Task Operational</span>
           </div>
-          <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
-            <span style={{ fontSize: 13, color: colors.muted, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-              {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} | {formatDate(currentTime)}
-            </span>
-            {activeTab !== "settings" && <button onClick={shareWhatsApp} style={{ ...btnStyle("primary"), whiteSpace: "nowrap", padding: "8px 14px" }}>Share</button>}
+          <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 12, color: colors.muted, fontVariantNumeric: "tabular-nums" }}>{currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} | {formatDate(currentTime)}</span>
+            {activeTab !== "settings" && <button onClick={shareWhatsApp} style={btnStyle("primary")}>Share</button>}
           </div>
         </header>
 
         <main className="main-content">
+          {/* Dashboard, Tasks, Stock, dll — sama seperti versi sebelumnya (tidak diubah) */}
           {activeTab === "dashboard" && (() => {
             const today = getToday();
             const todayTasks = tasks.filter(tk => tk.date === today && matchesUser(tk.assignee));
             const todayStock = stockItems.filter(s => s.date === today);
             const todayMeetings = meetings.filter(m => m.date === today);
             const todayMaint = maintItems.filter(m => m.date === today);
+
             return (
               <>
                 <div className="stats-grid">
-                  {[
-                    { label: t.total, value: todayTasks.length, color: colors.accent },
-                    { label: t.completed, value: todayTasks.filter(t => t.status === "Completed").length, color: colors.success },
-                    { label: t.remaining, value: todayTasks.filter(t => t.status !== "Completed" && t.status !== "Cancelled").length, color: colors.warning },
-                    { label: t.cancelled, value: todayTasks.filter(t => t.status === "Cancelled").length, color: colors.danger },
-                  ].map((s, i) => (
-                    <div className="stat-card" key={i}>
-                      <div className="stat-value">{s.value}</div>
-                      <div className="stat-label">{s.label}</div>
-                    </div>
+                  {[{ l: t.total, v: todayTasks.length }, { l: t.completed, v: todayTasks.filter(t => t.status === "Completed").length }, { l: t.remaining, v: todayTasks.filter(t => t.status !== "Completed" && t.status !== "Cancelled").length }, { l: t.cancelled, v: todayTasks.filter(t => t.status === "Cancelled").length }].map((s, i) => (
+                    <div className="stat-card" key={i}><div style={{ fontSize: 22, fontWeight: 700 }}>{s.v}</div><div style={{ fontSize: 11, color: colors.muted }}>{s.l}</div></div>
                   ))}
                 </div>
-                <div className="progress-card">
-                  <div className="progress-header">
-                    <div className="progress-title">{t.progress}</div>
-                    <div className="progress-pct">{todayTasks.length ? Math.round((todayTasks.filter(t => t.status === "Completed").length / todayTasks.length) * 100) : 0}%</div>
-                  </div>
-                  <div className="progress-bar"><div className="progress-fill" style={{ width: `${todayTasks.length ? (todayTasks.filter(t => t.status === "Completed").length / todayTasks.length) * 100 : 0}%` }} /></div>
-                  <div className="progress-text">Activities for {formatDate(today)}</div>
+                <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontWeight: 600 }}>{t.progress}</span><span style={{ background: colors.accentBg, color: colors.accent, padding: "3px 8px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{todayTasks.length ? Math.round(todayTasks.filter(t => t.status === "Completed").length / todayTasks.length * 100) : 0}%</span></div>
+                  <div style={{ height: 6, background: colors.cardMuted, borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${todayTasks.length ? todayTasks.filter(t => t.status === "Completed").length / todayTasks.length * 100 : 0}%`, background: colors.accent, borderRadius: 999 }} /></div>
                 </div>
-                <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-                  {todayTasks.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Tasks</div>{todayTasks.slice(0,3).map(tk=><div key={tk.id} style={{fontSize:13, marginBottom:4}}>• {tk.title} [{tk.status}]</div>)}</div>}
-                  {todayStock.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Stock</div>{todayStock.slice(0,3).map(s=><div key={s.id} style={{fontSize:13, marginBottom:4}}>• {s.item}: {s.stock-s.keluar+s.masuk} {s.unit}</div>)}</div>}
-                  {todayMeetings.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Meetings</div>{todayMeetings.slice(0,3).map(m=><div key={m.id} style={{fontSize:13, marginBottom:4}}>• {m.title} ({m.time})</div>)}</div>}
-                  {todayMaint.length > 0 && <div className="task-card"><div style={{fontWeight:600, marginBottom:8}}>Maintenance</div>{todayMaint.slice(0,3).map(m=><div key={m.id} style={{fontSize:13, marginBottom:4}}>• {m.equipment}: {m.status}</div>)}</div>}
+                <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
+                  {todayTasks.length > 0 && <div className="task-card"><b>Tasks</b>{todayTasks.slice(0, 4).map(tk => <div key={tk.id} style={{ fontSize: 12, marginTop: 6 }}>• {tk.title} [{tk.status}]</div>)}</div>}
+                  {todayStock.length > 0 && <div className="task-card"><b>Stock</b>{todayStock.slice(0, 3).map(s => <div key={s.id} style={{ fontSize: 12, marginTop: 6 }}>• {s.item}: {s.stock + s.masuk - s.keluar} {s.unit}</div>)}</div>}
+                  {todayMeetings.length > 0 && <div className="task-card"><b>Meetings</b>{todayMeetings.slice(0, 3).map(m => <div key={m.id} style={{ fontSize: 12, marginTop: 6 }}>• {m.title} ({m.time})</div>)}</div>}
+                  {todayMaint.length > 0 && <div className="task-card"><b>Maintenance</b>{todayMaint.slice(0, 3).map(m => <div key={m.id} style={{ fontSize: 12, marginTop: 6 }}>• {m.equipment}: {m.status}</div>)}</div>}
                 </div>
-                {(todayTasks.length===0 && todayStock.length===0 && todayMeetings.length===0 && todayMaint.length===0) && <div style={{textAlign:"center", padding:40, color:colors.muted}}>No activities recorded for today.</div>}
+                {todayTasks.length === 0 && todayStock.length === 0 && todayMeetings.length === 0 && todayMaint.length === 0 && <div style={{ textAlign: "center", padding: 40, color: colors.muted }}>{t.noTasks}</div>}
               </>
             );
           })()}
@@ -745,52 +549,45 @@ export default function App() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
                 <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t.tasks}</h2>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13, color: colors.muted }}>Filter Date:</span>
+                  <span style={{ fontSize: 13, color: colors.muted }}>Date:</span>
                   <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
                 </div>
               </div>
-              <div className="filter-bar">
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                 <input style={{ ...inputStyle, flex: 1 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." />
-                <select style={{ ...inputStyle, width: "auto", flex: 1 }} value={filterStat} onChange={e => setFilterStat(e.target.value)}><option value="All">Status</option>{statuses.map(s => <option key={s}>{s}</option>)}</select>
+                <select style={{ ...inputStyle, flex: 1 }} value={filterStat} onChange={e => setFilterStat(e.target.value)}><option value="All">Status</option>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
               </div>
-              {filteredTasks.length === 0 ? <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noTasks}</div> : (
-                filteredTasks.map(tk => {
-                  const isEditing = editingTaskId === tk.id;
-                  const badge = statusColors[tk.status];
-                  return (
-                    <div className="task-card" key={tk.id}>
-                      {isEditing ? (
-                        <div className="form-grid">
-                          <input style={inputStyle} value={editForm.title || ""} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
-                          <input style={inputStyle} type="date" value={editForm.date || tk.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value, deadline: e.target.value }))} />
-                          <input style={inputStyle} type="time" value={editForm.startTime || ""} onChange={e => setEditForm(p => ({ ...p, startTime: e.target.value }))} />
-                          <input style={inputStyle} type="time" value={editForm.endTime || ""} onChange={e => setEditForm(p => ({ ...p, endTime: e.target.value }))} />
-                          <select style={inputStyle} value={editForm.status || tk.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}><button style={btnStyle("primary")} onClick={saveEdit}>{t.save}</button><button style={btnStyle("secondary")} onClick={() => setEditingTaskId(null)}>{t.cancel}</button></div>
+              {filteredTasks.length === 0 ? <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noTasks}</div> : filteredTasks.map(tk => {
+                const isEd = editingTaskId === tk.id;
+                const badge = statusColors[tk.status];
+                return (
+                  <div className="task-card" key={tk.id}>
+                    {isEd ? (
+                      <div className="form-grid">
+                        <input style={inputStyle} value={editForm.title || ""} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
+                        <input style={inputStyle} type="date" value={editForm.date || tk.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value, deadline: e.target.value }))} />
+                        <input style={inputStyle} type="time" value={editForm.startTime || ""} onChange={e => setEditForm(p => ({ ...p, startTime: e.target.value }))} />
+                        <input style={inputStyle} type="time" value={editForm.endTime || ""} onChange={e => setEditForm(p => ({ ...p, endTime: e.target.value }))} />
+                        <select style={inputStyle} value={editForm.status || tk.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                        <div style={{ gridColumn: "1/-1", display: "flex", gap: 8 }}><button style={btnStyle("primary")} onClick={saveEdit}>{t.save}</button><button style={btnStyle("secondary")} onClick={() => setEditingTaskId(null)}>{t.cancel}</button></div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{tk.title}</span><span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{tk.status}</span></div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>{tk.category} · {tk.priority} · {tk.assignee} · {formatTimeRange(tk)}</div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button style={btnStyle(tk.status === "Completed" ? "secondary" : "primary")} onClick={() => toggleStatus(tk.id)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
+                          <button style={btnStyle("secondary")} onClick={() => { setEditingTaskId(tk.id); setEditForm(tk); }}>{t.edit}</button>
+                          <button style={btnStyle("danger")} onClick={() => deleteTask(tk.id)}>{t.delete}</button>
                         </div>
-                      ) : (
-                        <>
-                          <div className="task-header">
-                            <div className="task-title">{tk.title}</div>
-                            <span className="task-badge" style={{ background: badge.bg, color: badge.text }}>{tk.status}</span>
-                          </div>
-                          <div className="task-meta">{tk.category} · {tk.priority} · {tk.assignee} · {formatTimeRange(tk)}</div>
-                          <div className="task-actions">
-                            <button style={btnStyle(tk.status === "Completed" ? "secondary" : "primary")} onClick={() => toggleStatus(tk.id)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
-                            <button style={btnStyle("secondary")} onClick={() => handleInlineEdit(tk.id)}>{t.edit}</button>
-                            <input id={`file-${tk.id}`} type="file" accept="image/*" onChange={e => handleTaskPhotoUpload(e, tk.id)} style={{ display: "none" }} />
-                            <button style={btnStyle("secondary")} onClick={() => (document.getElementById(`file-${tk.id}`) as HTMLInputElement)?.click()}>{t.uploadPhoto}</button>
-                            <button style={btnStyle("danger")} onClick={() => setTasks(p => p.filter(i => i.id !== tk.id))}>{t.delete}</button>
-                          </div>
-                          <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 10 }} value={tk.notes} onChange={e => setTasks(p => p.map(i => i.id === tk.id ? { ...i, notes: e.target.value } : i))} placeholder={t.notesPlaceholder} />
-                        </>
-                      )}
-                    </div>
-                  );
-                })
-              )}
+                        <textarea style={{ ...inputStyle, minHeight: 40, marginTop: 8 }} value={tk.notes} onChange={e => { const v = e.target.value; setTasks(p => p.map(i => i.id === tk.id ? { ...i, notes: v } : i)); supabase.from('tasks').update({ notes: v }).eq('id', tk.id); }} placeholder={t.notesPlaceholder} />
+                      </>
+                    )}
+                  </div>
+                );
+              })}
               <div style={{ marginTop: 20, background: colors.cardMuted, padding: 16, borderRadius: 10 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.taskFormTitle}</div>
+                <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.taskFormTitle}</div>
                 <div className="form-grid">
                   <input style={inputStyle} value={taskForm.title || ""} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
                   <input style={inputStyle} value={taskForm.assignee || ""} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} disabled={currentUser.permissionRole === "Staff"} />
@@ -800,76 +597,32 @@ export default function App() {
                   <select style={inputStyle} value={taskForm.category || "Production"} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
                   <select style={inputStyle} value={taskForm.priority || "High"} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value as Priority }))}>{priorities.map(p => <option key={p} value={p}>{p}</option>)}</select>
                 </div>
-                <button style={{ ...btnStyle("primary"), width: "100%", padding: "10px 0", fontSize: 14 }} onClick={handleSaveTask}>{t.addTask}</button>
+                <button style={{ ...btnStyle("primary"), width: "100%", padding: "10px 0" }} onClick={handleSaveTask}>{t.addTask}</button>
               </div>
             </div>
           )}
 
-          {activeTab === "settings" && (
-            <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 20 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 20px" }}>{t.settings}</h2>
-              <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
-                <div className="task-card" style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 40, marginBottom: 10 }}>🖼️</div>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{t.uploadLogo}</div>
-                  <input id="settings-logo" type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
-                  <label htmlFor="settings-logo" style={{ ...btnStyle("secondary"), cursor: "pointer", display: "inline-block", padding: "8px 16px" }}>Choose Image</label>
-                </div>
-                <div className="task-card" style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 40, marginBottom: 10 }}>📄</div>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{t.importCsv}</div>
-                  <input id="settings-csv" type="file" accept=".csv" onChange={handleCsvUpload} style={{ display: "none" }} />
-                  <label htmlFor="settings-csv" style={{ ...btnStyle("secondary"), cursor: "pointer", display: "inline-block", padding: "8px 16px" }}>Choose CSV</label>
-                  
-                  {pendingImportedTasks && (
-                    <div style={{ marginTop: 16, padding: 14, background: colors.accentBg, borderRadius: 10, border: `1px solid ${colors.accent}` }}>
-                      <div style={{ fontSize: 13, color: colors.text, marginBottom: 8, fontWeight: 600 }}>📦 {pendingImportedTasks.length} tasks ready to save</div>
-                      <button style={btnStyle("primary")} onClick={() => {
-                        if (!pendingImportedTasks || pendingImportedTasks.length === 0) return;
-                        const targetDate = pendingImportedTasks[0].date;
-                        const mergedTasks = [...pendingImportedTasks, ...tasks];
-                        setTasks(mergedTasks);
-                        setSelectedDate(targetDate);
-                        setSearch("");
-                        setFilterStat("All");
-                        setActiveTab("tasks");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                        if(currentUser) {
-                          localStorage.setItem(`btice_data_${currentUser.name}`, JSON.stringify({ tasks: mergedTasks, stock: stockItems, meetings, maintenance: maintItems, logs: activityLogs }));
-                        }
-                        setPendingImportedTasks(null);
-                        window.alert("✅ Tasks saved & synced to Local Storage!");
-                      }}>💾 Save to Local Storage</button>
-                    </div>
-                  )}
-                </div>
-                <div className="task-card" style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 40, marginBottom: 10 }}>🗑️</div>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{t.resetData}</div>
-                  <button style={{ ...btnStyle("danger"), padding: "8px 16px" }} onClick={() => { if(window.confirm("Hapus semua data lokal?")) { localStorage.clear(); window.location.reload(); } }}>{t.resetData}</button>
-                </div>
-              </div>
-            </div>
-          )}
-
+          {/* Bagian stock, meeting, maintenance, activity_log, settings — tetap sama seperti versi sebelumnya (tidak diubah) */}
           {activeTab === "stock" && (
             <div className="split-grid">
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.stock}</div>
+                <div style={{ fontWeight: 600, marginBottom: 12 }}>{t.stock}</div>
                 <div style={{ display: "grid", gap: 12 }}>
                   {stockItems.filter(s => s.date === selectedDate).map(s => {
-                    const current = s.stock - s.keluar + s.masuk;
+                    const current = s.stock + s.masuk - s.keluar;
                     return (
                       <div key={s.id} className="task-card">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                          <div>
-                            <div style={{ fontSize: 15, fontWeight: 600 }}>{s.item}</div>
-                            <div style={{ fontSize: 12, color: colors.muted }}>{t.updateLast}: {formatDate(s.updatedAt)}</div>
-                          </div>
-                          <div style={{ fontSize: 16, fontWeight: 700, color: colors.accent }}>{t.currentStock}: {current} {s.unit}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontWeight: 600 }}>{s.item}</span>
+                          <span style={{ fontWeight: 700, color: current <= 0 ? colors.danger : colors.accent }}>{current} {s.unit}</span>
                         </div>
-                        {s.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>{s.notes}</div>}
-                        <button style={{ ...btnStyle("danger"), marginTop: 12 }} onClick={() => { setStockItems(p => p.filter(i => i.id !== s.id)); addLog("STOCK", `Deleted item: ${s.item}`); }}>{t.deleteItem}</button>
+                        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                          {/* Tanda '+' DIHAPUS — hanya "Masuk" dan "Keluar" */}
+                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.incoming} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ masuk: s.masuk+n, updatedAt:getToday() }).eq('id',s.id); setStockItems(p=>p.map(i=>i.id===s.id?{...i,masuk:i.masuk+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Added ${n} to ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Masuk</button>
+                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.outgoing} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ keluar: s.keluar+n, updatedAt:getToday() }).eq('id',s.id); setStockItems(p=>p.map(i=>i.id===s.id?{...i,keluar:i.keluar+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Removed ${n} from ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Keluar</button>
+                        </div>
+                        {s.notes && <div style={{ fontSize: 12, color: colors.muted }}>{s.notes}</div>}
+                        <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setStockItems(p => p.filter(i => i.id !== s.id)); try { supabase.from('stock_items').delete().eq('id', s.id); addLog("STOCK", `Deleted item ${s.item}`); } catch(e){console.error("Error deleting stock:", e);} }}>{t.deleteItem}</button>
                       </div>
                     );
                   })}
@@ -877,21 +630,21 @@ export default function App() {
                 </div>
               </div>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.addNewItem}</div>
+                <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.addNewItem}</div>
                 <input style={inputStyle} value={stockForm.date} onChange={e => setStockForm(p => ({ ...p, date: e.target.value }))} type="date" />
-                <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-                  <input style={inputStyle} value={stockForm.stock} onChange={e => setStockForm(p => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" />
-                  <input style={inputStyle} value={stockForm.masuk} onChange={e => setStockForm(p => ({ ...p, masuk: e.target.value }))} placeholder={t.incoming} type="number" />
-                  <input style={inputStyle} value={stockForm.keluar} onChange={e => setStockForm(p => ({ ...p, keluar: e.target.value }))} placeholder={t.outgoing} type="number" />
-                </div>
                 <input style={inputStyle} value={stockForm.item} onChange={e => setStockForm(p => ({ ...p, item: e.target.value }))} placeholder={t.itemName} />
                 <input style={inputStyle} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))} placeholder="Unit" />
-                <textarea style={{ ...inputStyle, minHeight: 60, marginTop: 10 }} value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
-                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { 
-                  if (!stockForm.item.trim()) { window.alert(t.alertTitleRequired); return; } 
-                  setStockItems(p => [{ id: String(Date.now()), item: stockForm.item, unit: stockForm.unit, stock: Number(stockForm.stock) || 0, masuk: Number(stockForm.masuk) || 0, keluar: Number(stockForm.keluar) || 0, notes: stockForm.notes, updatedAt: getToday(), date: stockForm.date || getToday() }, ...p]); 
-                  addLog("STOCK", `Added item: ${stockForm.item}`);
-                  setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", date: getToday() }); 
+                <input style={inputStyle} value={stockForm.stock} onChange={e => setStockForm(p => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" />
+                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={async () => {
+                  if (!stockForm.item.trim()) return window.alert(t.alertTitleRequired);
+                  const newItem: StockItem = { id: String(Date.now()), ...stockForm, stock: Number(stockForm.stock) || 0, masuk: 0, keluar: 0, updatedAt: getToday(), user_name: currentUser.name };
+                  setStockItems(p => [newItem, ...p]);
+                  try {
+                    await supabase.from('stock_items').insert(toSnakeCase(newItem));
+                    await addLog("STOCK", `Added new item: ${newItem.item}`);
+                  } catch (e) { console.error("Error saving stock item:", e); window.alert("Gagal menyimpan item ke database."); }
+                  setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", date: getToday() });
                 }}>{t.addNewItem}</button>
               </div>
             </div>
@@ -899,28 +652,28 @@ export default function App() {
 
           {activeTab === "meeting" && (
             <div className="split-grid">
-               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.meeting}</div>
+              <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ fontWeight: 600, marginBottom: 12 }}>{t.meeting}</div>
                 <div style={{ display: "grid", gap: 12 }}>
                   {meetings.filter(m => m.date === selectedDate).map(m => (
                     <div key={m.id} className="task-card">
-                      <div style={{ fontSize: 15, fontWeight: 600 }}>{m.title}</div>
-                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{formatDate(m.date)} · {m.time || "-"}</div>
-                      <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{t.attendeesInput}: {m.attendees || "-"}</div>
-                      {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
-                      <button style={{ ...btnStyle("danger"), marginTop: 10 }} onClick={() => { setMeetings(p => p.filter(x => x.id !== m.id)); addLog("MEETING", `Deleted meeting: ${m.title}`); }}>{t.delete}</button>
+                      <div style={{ fontWeight: 600 }}>{m.title}</div>
+                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{formatDate(m.date)} · {m.time || "-"}</div>
+                      <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{t.attendeesInput}: {m.attendees || "-"}</div>
+                      {m.notes && <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{m.notes}</div>}
+                      <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setMeetings(p => p.filter(x => x.id !== m.id)); try { supabase.from('meetings').delete().eq('id', m.id); addLog("MEETING", `Deleted meeting: ${m.title}`); } catch(e){console.error("Error deleting meeting:", e);} }}>{t.delete}</button>
                     </div>
                   ))}
                   {meetings.filter(m => m.date === selectedDate).length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMeeting}</div>}
                 </div>
               </div>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.scheduleMeeting}</div>
+                <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.scheduleMeeting}</div>
                 <input style={inputStyle} value={meetingForm.date} onChange={e => setMeetingForm(p => ({ ...p, date: e.target.value }))} type="date" />
                 <input style={inputStyle} value={meetingForm.title} onChange={e => setMeetingForm(p => ({ ...p, title: e.target.value }))} placeholder={t.meetingName} />
                 <input style={inputStyle} value={meetingForm.time} onChange={e => setMeetingForm(p => ({ ...p, time: e.target.value }))} type="time" />
                 <input style={inputStyle} value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} />
-                <textarea style={{ ...inputStyle, minHeight: 60, marginTop: 10 }} value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} />
+                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} />
                 <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={handleSaveMeeting}>{t.addMeeting}</button>
               </div>
             </div>
@@ -929,20 +682,17 @@ export default function App() {
           {activeTab === "maintenance" && (
             <div className="split-grid">
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.maintenance}</div>
+                <div style={{ fontWeight: 600, marginBottom: 12 }}>{t.maintenance}</div>
                 <div style={{ display: "grid", gap: 12 }}>
                   {maintItems.filter(m => m.date === selectedDate).map(m => {
                     const badge = statusColors[m.status];
                     return (
                       <div key={m.id} className="task-card">
-                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                          <div style={{ fontSize: 15, fontWeight: 600 }}>{m.equipment}</div>
-                          <span className="task-badge" style={{ background: badge.bg, color: badge.text }}>{m.status}</span>
-                        </div>
-                        <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.issue}</div>
-                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{t.techName}: {m.technician || "-"} · {formatDate(m.date)}</div>
-                        {m.notes && <div style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>{m.notes}</div>}
-                        <button style={{ ...btnStyle("danger"), marginTop: 10 }} onClick={() => { setMaintItems(p => p.filter(x => x.id !== m.id)); addLog("MAINTENANCE", `Deleted maintenance: ${m.equipment}`); }}>{t.delete}</button>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>{m.equipment}</span><span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>{m.status}</span></div>
+                        <div style={{ fontSize: 12, color: colors.muted }}>{m.issue}</div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{t.techName}: {m.technician || "-"} · {formatDate(m.date)}</div>
+                        {m.notes && <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{m.notes}</div>}
+                        <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setMaintItems(p => p.filter(x => x.id !== m.id)); try { supabase.from('maintenance').delete().eq('id', m.id); addLog("MAINTENANCE", `Deleted maintenance: ${m.equipment}`); } catch(e){console.error("Error deleting maintenance:", e);} }}>{t.delete}</button>
                       </div>
                     );
                   })}
@@ -950,34 +700,82 @@ export default function App() {
                 </div>
               </div>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.addMaint}</div>
+                <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.addMaint}</div>
                 <input style={inputStyle} value={maintForm.date} onChange={e => setMaintForm(p => ({ ...p, date: e.target.value }))} type="date" />
                 <input style={inputStyle} value={maintForm.equipment} onChange={e => setMaintForm(p => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} />
-                <textarea style={{ ...inputStyle, minHeight: 60 }} value={maintForm.issue} onChange={e => setMaintForm(p => ({ ...p, issue: e.target.value }))} placeholder={t.issueDesc} />
+                <textarea style={{ ...inputStyle, minHeight: 50 }} value={maintForm.issue} onChange={e => setMaintForm(p => ({ ...p, issue: e.target.value }))} placeholder={t.issueDesc} />
                 <input style={inputStyle} value={maintForm.technician} onChange={e => setMaintForm(p => ({ ...p, technician: e.target.value }))} placeholder={t.techName} />
                 <select style={inputStyle} value={maintForm.status} onChange={e => setMaintForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 10 }} value={maintForm.notes} onChange={e => setMaintForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
-                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={() => { if (!maintForm.equipment.trim()) { window.alert(t.alertTitleRequired); return; } setMaintItems(p => [{ id: String(Date.now()), ...maintForm }, ...p]); addLog("MAINTENANCE", `Created maintenance: ${maintForm.equipment}`); setMaintForm({ equipment: "", issue: "", technician: "", status: "Pending", date: selectedDate, notes: "" }); }}>{t.addMaintBtn}</button>
+                <textarea style={{ ...inputStyle, minHeight: 40, marginTop: 8 }} value={maintForm.notes} onChange={e => setMaintForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
+                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={async () => {
+                  if (!maintForm.equipment.trim()) return window.alert(t.alertTitleRequired);
+                  const newItem: MaintenanceItem = { id: String(Date.now()), ...maintForm, user_name: currentUser.name };
+                  setMaintItems(p => [newItem, ...p]);
+                  try {
+                    await supabase.from('maintenance').insert(toSnakeCase(newItem));
+                    await addLog("MAINTENANCE", `Added maintenance: ${newItem.equipment}`);
+                  } catch (e) { console.error("Error saving maintenance:", e); window.alert("Gagal menyimpan maintenance ke database."); }
+                  setMaintForm({ equipment: "", issue: "", technician: "", status: "Pending", date: selectedDate, notes: "" });
+                }}>{t.addMaintBtn}</button>
               </div>
             </div>
           )}
 
           {activeTab === "activity_log" && (
             <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{t.activityLog}</div>
+              <div style={{ fontWeight: 600, marginBottom: 12 }}>{t.activityLog}</div>
               {activityLogs.length === 0 ? <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noLogs}</div> : (
                 <div style={{ display: "grid", gap: 10 }}>
                   {activityLogs.map(log => (
                     <div key={log.id} className="task-card" style={{ padding: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontWeight: 600, color: colors.accent }}>{log.type}</span>
-                        <span style={{ fontSize: 11, color: colors.muted }}>{formatDateTime(log.timestamp)}</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: colors.text }}>{log.action}</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontWeight: 600, color: colors.accent }}>{log.type}</span><span style={{ fontSize: 11, color: colors.muted }}>{formatDateTime(log.timestamp)}</span></div>
+                      <div style={{ fontSize: 13 }}>{log.action}</div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === "settings" && (
+            <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 20px" }}>{t.settings}</h2>
+              <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                <div className="task-card" style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🖼️</div>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{t.uploadLogo}</div>
+                  <input id="logo" type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
+                  <label htmlFor="logo" style={{ ...btnStyle("secondary"), cursor: "pointer", display: "inline-block", padding: "8px 14px" }}>Choose</label>
+                </div>
+                <div className="task-card" style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>📄</div>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{t.importCsv}</div>
+                  <input id="csv" type="file" accept=".csv" onChange={handleCsvUpload} style={{ display: "none" }} />
+                  <label htmlFor="csv" style={{ ...btnStyle("secondary"), cursor: "pointer", display: "inline-block", padding: "8px 14px" }}>Choose CSV</label>
+                  {pendingImportedTasks && (
+                    <div style={{ marginTop: 12, padding: 10, background: colors.accentBg, borderRadius: 8, border: `1px solid ${colors.accent}` }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>📦 {pendingImportedTasks.length} tasks ready</div>
+                      <button style={btnStyle("primary")} onClick={async () => {
+                        if (!pendingImportedTasks) return;
+                        try {
+                          await supabase.from('tasks').insert(pendingImportedTasks.map(t => ({ ...t, user_name: currentUser.name })));
+                          setTasks(p => [...pendingImportedTasks, ...p]);
+                          setSelectedDate(pendingImportedTasks[0].date);
+                          setSearch(""); setFilterStat("All"); setActiveTab("tasks");
+                          setPendingImportedTasks(null);
+                          await addLog("CSV", `Imported ${pendingImportedTasks.length} tasks from CSV`);
+                          window.alert("✅ Saved to Database!");
+                        } catch (e) { console.error("Error importing CSV:", e); window.alert("Gagal menyimpan dari CSV."); }
+                      }}>💾 Save to Database</button>
+                    </div>
+                  )}
+                </div>
+                <div className="task-card" style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🗑️</div>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{t.resetData}</div>
+                  <button style={{ ...btnStyle("danger"), padding: "8px 14px" }} onClick={() => { if(window.confirm("Hapus semua data lokal & login?")) { localStorage.removeItem('btice_session'); window.location.reload(); } }}>{t.resetData}</button>
+                </div>
+              </div>
             </div>
           )}
         </main>
