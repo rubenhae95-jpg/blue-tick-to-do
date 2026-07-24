@@ -40,7 +40,6 @@ const DEFAULT_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/sv
 const categories = ["Production", "Cleaning", "Logistics", "Supervision", "Office", "Maintenance", "Factory Supervisor", "Other"];
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
-const shifts = ["Day", "Night"];
 const roles: PermissionRole[] = ["Admin", "Staff"];
 
 // ✅ Fixed positions: raw for DB, display for UI (Capitalize Each Word)
@@ -129,10 +128,10 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
   const [password, setPassword] = useState("");
   const [roleTitleDisplay, setRoleTitleDisplay] = useState(fixedPositionsDisplay[0]);
   const [role, setRole] = useState<PermissionRole>("Staff");
-  const [shift, setShift] = useState("Day");
+  const [shift] = useState("Day");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false); // ✅ Tambahan State untuk Daftar
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const submit = async () => {
     if (!name.trim()) { setErr(t.nameRequired); return; }
@@ -144,7 +143,6 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
 
     try {
       if (isSignUp) {
-        // ✅ Logika Daftar Akun
         const { error } = await supabase.from('users').insert({
           username: name.trim(),
           password: password,
@@ -155,7 +153,6 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
 
         if (error) throw error;
         
-        // Auto login setelah berhasil mendaftar
         onLogin({
           name: name.trim(),
           roleTitle: actualPosition,
@@ -164,7 +161,6 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
         });
 
       } else {
-        // ✅ Logika Masuk / Login (Existing)
         const { data, error } = await supabase
           .from('users')
           .select('*')
@@ -231,7 +227,6 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
         <input value={name} onChange={e => setName(e.target.value)} placeholder={t.loginName} style={inputStyle} onKeyDown={e => e.key === "Enter" && submit()} />
         <input value={password} type="password" onChange={e => setPassword(e.target.value)} placeholder={t.loginPassword} style={inputStyle} onKeyDown={e => e.key === "Enter" && submit()} />
 
-        {/* Form Role & Shift hanya relevan saat mendaftar atau jika belum diatur, tapi kita biarkan tampil seperti original */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <select value={role} onChange={e => setRole(e.target.value as PermissionRole)} style={{ ...inputStyle, width: "100%" }}>
             {roles.map(r => <option key={r} value={r}>{r}</option>)}
@@ -264,14 +259,12 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
           {loading ? "Loading..." : (isSignUp ? "Daftar" : t.loginBtn)}
         </button>
 
-        {/* ✅ Tombol Toggle Daftar/Masuk */}
         <div 
           onClick={() => { setIsSignUp(!isSignUp); setErr(""); }} 
           style={{ textAlign: "center", fontSize: 13, color: colors.accent, cursor: "pointer", fontWeight: 500 }}
         >
           {isSignUp ? "Sudah punya akun? Masuk di sini" : "Belum punya akun? Daftar di sini"}
         </div>
-
       </div>
     </div>
   );
@@ -307,7 +300,6 @@ export default function App() {
     endTime: "",
     status: "Pending",
     notes: ""
-    // ✅ imageUrl dihapus dari inisial form Add Task
   });
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -375,13 +367,13 @@ export default function App() {
   }, [currentUser, theme, lang, userLogo]);
 
   useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer); }, []);
-  useEffect(() => { if (currentUser && !taskForm.assignee) setTaskForm(p => ({ ...p, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "" })); }, [currentUser, taskForm.assignee]);
-  useEffect(() => { setMeetingForm(p => ({ ...p, date: selectedDate })); setStockForm(p => ({ ...p, date: selectedDate })); setMaintForm(p => ({ ...p, date: selectedDate })); }, [selectedDate]);
+  useEffect(() => { if (currentUser && !taskForm.assignee) setTaskForm((p: any) => ({ ...p, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "" })); }, [currentUser, taskForm.assignee]);
+  useEffect(() => { setMeetingForm((p: any) => ({ ...p, date: selectedDate })); setStockForm((p: any) => ({ ...p, date: selectedDate })); setMaintForm((p: any) => ({ ...p, date: selectedDate })); }, [selectedDate]);
 
   const handleLogin = (user: CurrentUser) => {
     localStorage.setItem('btice_session', JSON.stringify(user));
     setCurrentUser(user);
-    setTaskForm(p => ({ ...p, assignee: user.permissionRole === "Staff" ? user.name : "" }));
+    setTaskForm((p: any) => ({ ...p, assignee: user.permissionRole === "Staff" ? user.name : "" }));
   };
   const handleLogout = () => { 
     localStorage.removeItem('btice_session'); 
@@ -403,7 +395,7 @@ export default function App() {
 
   const addLog = async (type: string, action: string) => {
     const entry = { id: String(Date.now()), type, action, timestamp: new Date().toISOString(), user_name: currentUser.name };
-    setActivityLogs(p => [entry, ...p].slice(0, 200));
+    setActivityLogs((p: any) => [entry, ...p].slice(0, 200));
     try {
       await supabase.from('activity_logs').insert(entry);
     } catch (e) {
@@ -480,7 +472,7 @@ export default function App() {
           return;
         }
 
-        setTasks(prev => [...newTasks, ...prev]);
+        setTasks((prev: any) => [...newTasks, ...prev]);
         await addLog("CSV", `Imported ${newTasks.length} tasks from CSV`);
         window.alert(`✅ ${newTasks.length} ${t.csvSuccess}`);
       } catch {
@@ -505,7 +497,7 @@ export default function App() {
       status: taskForm.status || "Pending",
       notes: taskForm.notes || "",
       user_name: currentUser.name,
-      imageUrl: "" // ✅ Default kosong saat baru dibuat tanpa foto
+      imageUrl: ""
     };
 
     const { error } = await supabase.from('task').insert(newTask);
@@ -515,7 +507,7 @@ export default function App() {
       return;
     }
 
-    setTasks(p => [newTask, ...p]);
+    setTasks((p: any) => [newTask, ...p]);
     await addLog("TASK", `Created: ${newTask.task}`);
     setTaskForm({
       title: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "",
@@ -532,7 +524,7 @@ export default function App() {
       window.alert(`Gagal update: ${error.message}`);
       return;
     }
-    setTasks(p => p.map(tk => tk.id === editingTaskId ? { ...tk, ...editForm } : tk));
+    setTasks((p: any) => p.map((tk: any) => tk.id === editingTaskId ? { ...tk, ...editForm } : tk));
     await addLog("TASK", `Updated task: ${editForm.task}`);
     setEditingTaskId(null);
   };
@@ -546,7 +538,7 @@ export default function App() {
       window.alert(`Gagal ubah status: ${error.message}`);
       return;
     }
-    setTasks(p => p.map(x => x.id === id ? { ...x, status: ns } : x));
+    setTasks((p: any) => p.map((x: any) => x.id === id ? { ...x, status: ns } : x));
     await addLog("TASK", `Status changed for: ${t.task}`);
   };
   const deleteTask = async (id: string) => {
@@ -556,7 +548,7 @@ export default function App() {
       window.alert(`Gagal hapus task: ${error.message}`);
       return;
     }
-    setTasks(p => p.filter(x => x.id !== id));
+    setTasks((p: any) => p.filter((x: any) => x.id !== id));
     await addLog("TASK", `Deleted task with id: ${id}`);
   };
   const handleSaveMeeting = async () => {
@@ -568,7 +560,7 @@ export default function App() {
       window.alert(`Gagal simpan meeting: ${error.message}`);
       return;
     }
-    setMeetings(p => [m, ...p]);
+    setMeetings((p: any) => [m, ...p]);
     await addLog("MEETING", m.title);
     setMeetingForm({ title: "", date: selectedDate, time: "", attendees: "", notes: "" });
     window.alert("✅ Saved!");
@@ -718,11 +710,11 @@ export default function App() {
                   <div className="task-card" key={tk.id}>
                     {isEd ? (
                       <div className="form-grid">
-                        <input style={inputStyle} value={editForm.task || ""} onChange={e => setEditForm(p => ({ ...p, task: e.target.value }))} />
-                        <input style={inputStyle} type="date" value={editForm.date || tk.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))} />
-                        <input style={inputStyle} type="time" value={editForm.time_start || ""} onChange={e => setEditForm(p => ({ ...p, time_start: e.target.value }))} />
-                        <input style={inputStyle} type="time" value={editForm.time_end || ""} onChange={e => setEditForm(p => ({ ...p, time_end: e.target.value }))} />
-                        <select style={inputStyle} value={editForm.status || tk.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                        <input style={inputStyle} value={editForm.task || ""} onChange={e => setEditForm((p: any) => ({ ...p, task: e.target.value }))} />
+                        <input style={inputStyle} type="date" value={editForm.date || tk.date} onChange={e => setEditForm((p: any) => ({ ...p, date: e.target.value }))} />
+                        <input style={inputStyle} type="time" value={editForm.time_start || ""} onChange={e => setEditForm((p: any) => ({ ...p, time_start: e.target.value }))} />
+                        <input style={inputStyle} type="time" value={editForm.time_end || ""} onChange={e => setEditForm((p: any) => ({ ...p, time_end: e.target.value }))} />
+                        <select style={inputStyle} value={editForm.status || tk.status} onChange={e => setEditForm((p: any) => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
                         <div style={{ gridColumn: "1/-1", display: "flex", gap: 8 }}><button style={btnStyle("primary")} onClick={saveEdit}>{t.save}</button><button style={btnStyle("secondary")} onClick={() => setEditingTaskId(null)}>{t.cancel}</button></div>
                       </div>
                     ) : (
@@ -730,14 +722,12 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{tk.task}</span><span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{tk.status}</span></div>
                         <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>{tk.role} · {tk.level} · {tk.assignee} · {formatTimeRange(tk)}</div>
                         
-                        {/* ✅ Pratinjau Foto Task */}
                         {tk.imageUrl && <img src={tk.imageUrl} style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginTop: 8 }} alt="Task" />}
                         
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
                           <button style={btnStyle(tk.status === "Completed" ? "secondary" : "primary")} onClick={() => toggleStatus(tk.id)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
                           <button style={btnStyle("secondary")} onClick={() => { setEditingTaskId(tk.id); setEditForm(tk); }}>{t.edit}</button>
                           
-                          {/* ✅ Upload Foto per Task */}
                           <label style={{ ...btnStyle("secondary"), cursor: "pointer" }} htmlFor={`upload-task-${tk.id}`}>📷 Foto</label>
                           <input 
                             id={`upload-task-${tk.id}`} 
@@ -750,7 +740,7 @@ export default function App() {
                               const reader = new FileReader();
                               reader.onload = async () => {
                                 const b64 = reader.result as string;
-                                setTasks(p => p.map(x => x.id === tk.id ? { ...x, imageUrl: b64 } : x));
+                                setTasks((p: any) => p.map((x: any) => x.id === tk.id ? { ...x, imageUrl: b64 } : x));
                                 await supabase.from('task').update({ imageUrl: b64 }).eq('id', tk.id);
                               };
                               reader.readAsDataURL(file);
@@ -759,7 +749,7 @@ export default function App() {
                           
                           <button style={btnStyle("danger")} onClick={() => deleteTask(tk.id)}>{t.delete}</button>
                         </div>
-                        <textarea style={{ ...inputStyle, minHeight: 40, marginTop: 8 }} value={tk.notes} onChange={e => { const v = e.target.value; setTasks(p => p.map(i => i.id === tk.id ? { ...i, notes: v } : i)); supabase.from('task').update({ notes: v }).eq('id', tk.id); }} placeholder={t.notesPlaceholder} />
+                        <textarea style={{ ...inputStyle, minHeight: 40, marginTop: 8 }} value={tk.notes} onChange={e => { const v = e.target.value; setTasks((p: any) => p.map((i: any) => i.id === tk.id ? { ...i, notes: v } : i)); supabase.from('task').update({ notes: v }).eq('id', tk.id); }} placeholder={t.notesPlaceholder} />
                       </>
                     )}
                   </div>
@@ -768,14 +758,13 @@ export default function App() {
               <div style={{ marginTop: 20, background: colors.cardMuted, padding: 16, borderRadius: 10 }}>
                 <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.taskFormTitle}</div>
                 <div className="form-grid">
-                  <input style={inputStyle} value={taskForm.title || ""} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
-                  <input style={inputStyle} value={taskForm.assignee || ""} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} disabled={currentUser.permissionRole === "Staff"} />
-                  <input style={inputStyle} value={taskForm.date || selectedDate} onChange={e => setTaskForm(p => ({ ...p, date: e.target.value, deadline: e.target.value }))} type="date" />
-                  <input style={inputStyle} value={taskForm.startTime || ""} onChange={e => setTaskForm(p => ({ ...p, startTime: e.target.value }))} type="time" />
-                  <input style={inputStyle} value={taskForm.endTime || ""} onChange={e => setTaskForm(p => ({ ...p, endTime: e.target.value }))} type="time" />
-                  <select style={inputStyle} value={taskForm.category || "Production"} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
-                  <select style={inputStyle} value={taskForm.priority || "High"} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value as Priority }))}>{priorities.map(p => <option key={p} value={p}>{p}</option>)}</select>
-                  {/* ✅ Input upload file telah dihapus dari sini */}
+                  <input style={inputStyle} value={taskForm.title || ""} onChange={e => setTaskForm((p: any) => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
+                  <input style={inputStyle} value={taskForm.assignee || ""} onChange={e => setTaskForm((p: any) => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} disabled={currentUser.permissionRole === "Staff"} />
+                  <input style={inputStyle} value={taskForm.date || selectedDate} onChange={e => setTaskForm((p: any) => ({ ...p, date: e.target.value, deadline: e.target.value }))} type="date" />
+                  <input style={inputStyle} value={taskForm.startTime || ""} onChange={e => setTaskForm((p: any) => ({ ...p, startTime: e.target.value }))} type="time" />
+                  <input style={inputStyle} value={taskForm.endTime || ""} onChange={e => setTaskForm((p: any) => ({ ...p, endTime: e.target.value }))} type="time" />
+                  <select style={inputStyle} value={taskForm.category || "Production"} onChange={e => setTaskForm((p: any) => ({ ...p, category: e.target.value }))}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                  <select style={inputStyle} value={taskForm.priority || "High"} onChange={e => setTaskForm((p: any) => ({ ...p, priority: e.target.value as Priority }))}>{priorities.map(p => <option key={p} value={p}>{p}</option>)}</select>
                 </div>
                 <button style={{ ...btnStyle("primary"), width: "100%", padding: "10px 0" }} onClick={handleSaveTask}>{t.addTask}</button>
               </div>
@@ -797,11 +786,11 @@ export default function App() {
                           <span style={{ fontWeight: 700, color: current <= 0 ? colors.danger : colors.accent }}>{current} {s.unit}</span>
                         </div>
                         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.incoming} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ masuk: s.masuk+n, updatedAt:getToday() }).eq('id',s.id); setStockItems(p=>p.map((i: any)=>i.id===s.id?{...i,masuk:i.masuk+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Added ${n} to ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Masuk</button>
-                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.outgoing} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ keluar: s.keluar+n, updatedAt:getToday() }).eq('id',s.id); setStockItems(p=>p.map((i: any)=>i.id===s.id?{...i,keluar:i.keluar+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Removed ${n} from ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Keluar</button>
+                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.incoming} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ masuk: s.masuk+n, updatedAt:getToday() }).eq('id',s.id); setStockItems((p: any)=>p.map((i: any)=>i.id===s.id?{...i,masuk:i.masuk+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Added ${n} to ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Masuk</button>
+                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.outgoing} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ keluar: s.keluar+n, updatedAt:getToday() }).eq('id',s.id); setStockItems((p: any)=>p.map((i: any)=>i.id===s.id?{...i,keluar:i.keluar+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Removed ${n} from ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Keluar</button>
                         </div>
                         {s.notes && <div style={{ fontSize: 12, color: colors.muted }}>{s.notes}</div>}
-                        <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setStockItems(p => p.filter((i: any) => i.id !== s.id)); try { supabase.from('stock_items').delete().eq('id', s.id); addLog("STOCK", `Deleted item ${s.item}`); } catch(e){console.error("Error deleting stock:", e);} }}>{t.deleteItem}</button>
+                        <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setStockItems((p: any) => p.filter((i: any) => i.id !== s.id)); try { supabase.from('stock_items').delete().eq('id', s.id); addLog("STOCK", `Deleted item ${s.item}`); } catch(e){console.error("Error deleting stock:", e);} }}>{t.deleteItem}</button>
                       </div>
                     );
                   })}
@@ -810,15 +799,15 @@ export default function App() {
               </div>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
                 <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.addNewItem}</div>
-                <input style={inputStyle} value={stockForm.date} onChange={e => setStockForm(p => ({ ...p, date: e.target.value }))} type="date" />
-                <input style={inputStyle} value={stockForm.item} onChange={e => setStockForm(p => ({ ...p, item: e.target.value }))} placeholder={t.itemName} />
-                <input style={inputStyle} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))} placeholder="Unit" />
-                <input style={inputStyle} value={stockForm.stock} onChange={e => setStockForm(p => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" />
-                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
+                <input style={inputStyle} value={stockForm.date} onChange={e => setStockForm((p: any) => ({ ...p, date: e.target.value }))} type="date" />
+                <input style={inputStyle} value={stockForm.item} onChange={e => setStockForm((p: any) => ({ ...p, item: e.target.value }))} placeholder={t.itemName} />
+                <input style={inputStyle} value={stockForm.unit} onChange={e => setStockForm((p: any) => ({ ...p, unit: e.target.value }))} placeholder="Unit" />
+                <input style={inputStyle} value={stockForm.stock} onChange={e => setStockForm((p: any) => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" />
+                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={stockForm.notes} onChange={e => setStockForm((p: any) => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
                 <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={async () => {
                   if (!stockForm.item.trim()) return window.alert(t.alertTitleRequired);
                   const newItem = { id: crypto.randomUUID(), ...stockForm, stock: Number(stockForm.stock) || 0, masuk: 0, keluar: 0, updatedAt: getToday(), user_name: currentUser.name };
-                  setStockItems(p => [newItem, ...p]);
+                  setStockItems((p: any) => [newItem, ...p]);
                   try {
                     await supabase.from('stock_items').insert(toSnakeCase(newItem));
                     await addLog("STOCK", `Added new item: ${newItem.item}`);
@@ -840,7 +829,7 @@ export default function App() {
                       <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{formatDate(m.date)} · {m.time || "-"}</div>
                       <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{t.attendeesInput}: {m.attendees || "-"}</div>
                       {m.notes && <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{m.notes}</div>}
-                      <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setMeetings(p => p.filter((x: any) => x.id !== m.id)); try { supabase.from('meetings').delete().eq('id', m.id); addLog("MEETING", `Deleted meeting: ${m.title}`); } catch(e){console.error("Error deleting meeting:", e);} }}>{t.delete}</button>
+                      <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setMeetings((p: any) => p.filter((x: any) => x.id !== m.id)); try { supabase.from('meetings').delete().eq('id', m.id); addLog("MEETING", `Deleted meeting: ${m.title}`); } catch(e){console.error("Error deleting meeting:", e);} }}>{t.delete}</button>
                     </div>
                   ))}
                   {meetings.filter((m: any) => m.date === selectedDate).length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noMeeting}</div>}
@@ -848,11 +837,11 @@ export default function App() {
               </div>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
                 <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.scheduleMeeting}</div>
-                <input style={inputStyle} value={meetingForm.date} onChange={e => setMeetingForm(p => ({ ...p, date: e.target.value }))} type="date" />
-                <input style={inputStyle} value={meetingForm.title} onChange={e => setMeetingForm(p => ({ ...p, title: e.target.value }))} placeholder={t.meetingName} />
-                <input style={inputStyle} value={meetingForm.time} onChange={e => setMeetingForm(p => ({ ...p, time: e.target.value }))} type="time" />
-                <input style={inputStyle} value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} />
-                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} />
+                <input style={inputStyle} value={meetingForm.date} onChange={e => setMeetingForm((p: any) => ({ ...p, date: e.target.value }))} type="date" />
+                <input style={inputStyle} value={meetingForm.title} onChange={e => setMeetingForm((p: any) => ({ ...p, title: e.target.value }))} placeholder={t.meetingName} />
+                <input style={inputStyle} value={meetingForm.time} onChange={e => setMeetingForm((p: any) => ({ ...p, time: e.target.value }))} type="time" />
+                <input style={inputStyle} value={meetingForm.attendees} onChange={e => setMeetingForm((p: any) => ({ ...p, attendees: e.target.value }))} placeholder={t.attendeesInput} />
+                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={meetingForm.notes} onChange={e => setMeetingForm((p: any) => ({ ...p, notes: e.target.value }))} placeholder={t.agenda} />
                 <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={handleSaveMeeting}>{t.addMeeting}</button>
               </div>
             </div>
@@ -872,13 +861,11 @@ export default function App() {
                         <div style={{ fontSize: 12, color: colors.muted }}>{m.issue}</div>
                         <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{t.techName}: {m.technician || "-"} · {formatDate(m.date)}</div>
                         
-                        {/* ✅ Pratinjau Foto Maintenance */}
                         {m.imageUrl && <img src={m.imageUrl} style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginTop: 8 }} alt="Maintenance" />}
                         
                         {m.notes && <div style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>{m.notes}</div>}
                         
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                          {/* ✅ Upload Foto per Maintenance Item */}
                           <label style={{ ...btnStyle("secondary"), cursor: "pointer", fontSize: 12 }} htmlFor={`upload-maint-${m.id}`}>📷 Foto</label>
                           <input 
                             id={`upload-maint-${m.id}`} 
@@ -891,13 +878,13 @@ export default function App() {
                               const reader = new FileReader();
                               reader.onload = async () => {
                                 const b64 = reader.result as string;
-                                setMaintItems(p => p.map(x => x.id === m.id ? { ...x, imageUrl: b64 } : x));
+                                setMaintItems((p: any) => p.map((x: any) => x.id === m.id ? { ...x, imageUrl: b64 } : x));
                                 await supabase.from('maintenance').update({ imageUrl: b64 }).eq('id', m.id);
                               };
                               reader.readAsDataURL(file);
                             }} 
                           />
-                          <button style={{ ...btnStyle("danger"), fontSize: 12 }} onClick={() => { setMaintItems(p => p.filter((x: any) => x.id !== m.id)); try { supabase.from('maintenance').delete().eq('id', m.id); addLog("MAINTENANCE", `Deleted maintenance: ${m.equipment}`); } catch(e){console.error("Error deleting maintenance:", e);} }}>{t.delete}</button>
+                          <button style={{ ...btnStyle("danger"), fontSize: 12 }} onClick={() => { setMaintItems((p: any) => p.filter((x: any) => x.id !== m.id)); try { supabase.from('maintenance').delete().eq('id', m.id); addLog("MAINTENANCE", `Deleted maintenance: ${m.equipment}`); } catch(e){console.error("Error deleting maintenance:", e);} }}>{t.delete}</button>
                         </div>
                       </div>
                     );
@@ -907,16 +894,16 @@ export default function App() {
               </div>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
                 <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.addMaint}</div>
-                <input style={inputStyle} value={maintForm.date} onChange={e => setMaintForm(p => ({ ...p, date: e.target.value }))} type="date" />
-                <input style={inputStyle} value={maintForm.equipment} onChange={e => setMaintForm(p => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} />
-                <textarea style={{ ...inputStyle, minHeight: 50 }} value={maintForm.issue} onChange={e => setMaintForm(p => ({ ...p, issue: e.target.value }))} placeholder={t.issueDesc} />
-                <input style={inputStyle} value={maintForm.technician} onChange={e => setMaintForm(p => ({ ...p, technician: e.target.value }))} placeholder={t.techName} />
-                <select style={inputStyle} value={maintForm.status} onChange={e => setMaintForm(p => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                <textarea style={{ ...inputStyle, minHeight: 40, marginTop: 8 }} value={maintForm.notes} onChange={e => setMaintForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
+                <input style={inputStyle} value={maintForm.date} onChange={e => setMaintForm((p: any) => ({ ...p, date: e.target.value }))} type="date" />
+                <input style={inputStyle} value={maintForm.equipment} onChange={e => setMaintForm((p: any) => ({ ...p, equipment: e.target.value }))} placeholder={t.equipName} />
+                <textarea style={{ ...inputStyle, minHeight: 50 }} value={maintForm.issue} onChange={e => setMaintForm((p: any) => ({ ...p, issue: e.target.value }))} placeholder={t.issueDesc} />
+                <input style={inputStyle} value={maintForm.technician} onChange={e => setMaintForm((p: any) => ({ ...p, technician: e.target.value }))} placeholder={t.techName} />
+                <select style={inputStyle} value={maintForm.status} onChange={e => setMaintForm((p: any) => ({ ...p, status: e.target.value as TaskStatus }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                <textarea style={{ ...inputStyle, minHeight: 40, marginTop: 8 }} value={maintForm.notes} onChange={e => setMaintForm((p: any) => ({ ...p, notes: e.target.value }))} placeholder={t.maintNotes} />
                 <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={async () => {
                   if (!maintForm.equipment.trim()) return window.alert(t.alertTitleRequired);
-                  const newItem = { id: crypto.randomUUID(), ...maintForm, user_name: currentUser.name, imageUrl: "" }; // ✅ Default kosong
-                  setMaintItems(p => [newItem, ...p]);
+                  const newItem = { id: crypto.randomUUID(), ...maintForm, user_name: currentUser.name, imageUrl: "" };
+                  setMaintItems((p: any) => [newItem, ...p]);
                   try {
                     await supabase.from('maintenance').insert(toSnakeCase(newItem));
                     await addLog("MAINTENANCE", `Added maintenance: ${newItem.equipment}`);
