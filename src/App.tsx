@@ -574,7 +574,7 @@ export default function App() {
 
     const completedTasks = todayTasks.filter((tk: any) => tk.status === "Completed").map((tk: any) => `• ${tk.task} [${tk.status}] ${formatTimeRange(tk)}`).join('\n') || '-';
     const pendingTasks = todayTasks.filter((tk: any) => tk.status !== "Completed" && tk.status !== "Cancelled").map((tk: any) => `• ${tk.task} [${tk.status}] ${formatTimeRange(tk)}`).join('\n') || '-';
-    const stockItemsText = todayStock.map((s: any) => `• ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('\n') || '-';
+    const stockItemsText = todayStock.map((s: any) => `• ${s.item} : ${(s.initial_stock ?? s.stock ?? 0) + s.masuk - s.keluar} ${s.unit}`).join('\n') || '-';
     const maintItemsText = todayMaint.map((m: any) => `• ${m.equipment} : ${m.issue} [${m.status}]`).join('\n') || '-';
     const meetingItemsText = todayMeetings.map((m: any) => `• ${m.title} (${m.time}) - ${m.attendees}`).join('\n') || '-';
 
@@ -679,7 +679,7 @@ export default function App() {
                 </div>
                 <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
                   {todayTasks.length > 0 && <div className="task-card"><b>Tasks</b>{todayTasks.slice(0, 4).map((tk: any) => <div key={tk.id} style={{ fontSize: 12, marginTop: 6 }}>• {tk.task} [{tk.status}]</div>)}</div>}
-                  {todayStock.length > 0 && <div className="task-card"><b>Stock</b>{todayStock.slice(0, 3).map((s: any) => <div key={s.id} style={{ fontSize: 12, marginTop: 6 }}>• {s.item}: {s.stock + s.masuk - s.keluar} {s.unit}</div>)}</div>}
+                  {todayStock.length > 0 && <div className="task-card"><b>Stock</b>{todayStock.slice(0, 3).map((s: any) => <div key={s.id} style={{ fontSize: 12, marginTop: 6 }}>• {s.item}: {(s.initial_stock ?? s.stock ?? 0) + s.masuk - s.keluar} {s.unit}</div>)}</div>}
                   {todayMeetings.length > 0 && <div className="task-card"><b>Meetings</b>{todayMeetings.slice(0, 3).map((m: any) => <div key={m.id} style={{ fontSize: 12, marginTop: 6 }}>• {m.title} ({m.time})</div>)}</div>}
                   {todayMaint.length > 0 && <div className="task-card"><b>Maintenance</b>{todayMaint.slice(0, 3).map((m: any) => <div key={m.id} style={{ fontSize: 12, marginTop: 6 }}>• {m.equipment}: {m.status}</div>)}</div>}
                 </div>
@@ -778,7 +778,7 @@ export default function App() {
                 <div style={{ fontWeight: 600, marginBottom: 12 }}>{t.stock}</div>
                 <div style={{ display: "grid", gap: 12 }}>
                   {stockItems.filter((s: any) => s.date === selectedDate).map((s: any) => {
-                    const current = s.stock + s.masuk - s.keluar;
+                    const current = (s.initial_stock ?? s.stock ?? 0) + s.masuk - s.keluar;
                     return (
                       <div key={s.id} className="task-card">
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -786,8 +786,8 @@ export default function App() {
                           <span style={{ fontWeight: 700, color: current <= 0 ? colors.danger : colors.accent }}>{current} {s.unit}</span>
                         </div>
                         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.incoming} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ masuk: s.masuk+n, updatedAt:getToday() }).eq('id',s.id); setStockItems((p: any)=>p.map((i: any)=>i.id===s.id?{...i,masuk:i.masuk+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Added ${n} to ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Masuk</button>
-                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.outgoing} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ keluar: s.keluar+n, updatedAt:getToday() }).eq('id',s.id); setStockItems((p: any)=>p.map((i: any)=>i.id===s.id?{...i,keluar:i.keluar+n,updatedAt:getToday()}:i)); await addLog("STOCK", `Removed ${n} from ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Keluar</button>
+                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.incoming} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ masuk: s.masuk+n, updated_at:getToday() }).eq('id',s.id); setStockItems((p: any)=>p.map((i: any)=>i.id===s.id?{...i,masuk:i.masuk+n,updated_at:getToday()}:i)); await addLog("STOCK", `Added ${n} to ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Masuk</button>
+                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { const v = prompt(`Tambah ${t.outgoing} (${s.item}):`, "0"); if(v!==null){ const n=Number(v); try { await supabase.from('stock_items').update({ keluar: s.keluar+n, updated_at:getToday() }).eq('id',s.id); setStockItems((p: any)=>p.map((i: any)=>i.id===s.id?{...i,keluar:i.keluar+n,updated_at:getToday()}:i)); await addLog("STOCK", `Removed ${n} from ${s.item}`); } catch(e){console.error("Error updating stock:", e);} } }}>Keluar</button>
                         </div>
                         {s.notes && <div style={{ fontSize: 12, color: colors.muted }}>{s.notes}</div>}
                         <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={() => { setStockItems((p: any) => p.filter((i: any) => i.id !== s.id)); try { supabase.from('stock_items').delete().eq('id', s.id); addLog("STOCK", `Deleted item ${s.item}`); } catch(e){console.error("Error deleting stock:", e);} }}>{t.deleteItem}</button>
@@ -806,7 +806,18 @@ export default function App() {
                 <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={stockForm.notes} onChange={e => setStockForm((p: any) => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
                 <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={async () => {
                   if (!stockForm.item.trim()) return window.alert(t.alertTitleRequired);
-                  const newItem = { id: crypto.randomUUID(), ...stockForm, stock: Number(stockForm.stock) || 0, masuk: 0, keluar: 0, updatedAt: getToday(), user_name: currentUser.name };
+                  const newItem = { 
+                    id: crypto.randomUUID(), 
+                    item: stockForm.item,
+                    unit: stockForm.unit,
+                    initialStock: Number(stockForm.stock) || 0, // ✅ Fixed to match initial_stock column
+                    masuk: 0, 
+                    keluar: 0, 
+                    notes: stockForm.notes,
+                    date: stockForm.date,
+                    updated_at: getToday(), 
+                    user_name: currentUser.name 
+                  };
                   setStockItems((p: any) => [newItem, ...p]);
                   try {
                     await supabase.from('stock_items').insert(toSnakeCase(newItem));
