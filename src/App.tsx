@@ -252,6 +252,12 @@ function LoginScreen({ colors, onLogin, t }: { colors: Colors; onLogin: (u: Curr
           </select>
         </div>
 
+        {isRegister && (
+          <select value={shift} onChange={e => setShift(e.target.value)} style={{ ...inputStyle, width: "100%" }}>
+            {shifts.map(sh => <option key={sh} value={sh}>{sh}</option>)}
+          </select>
+        )}
+
         {err && <div style={{ fontSize: 13, color: colors.danger, marginBottom: 8, textAlign: "center" }}>{err}</div>}
         {successMsg && <div style={{ fontSize: 13, color: colors.success, marginBottom: 8, textAlign: "center" }}>{successMsg}</div>}
         
