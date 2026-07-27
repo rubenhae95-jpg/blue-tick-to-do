@@ -17,6 +17,8 @@ interface CurrentUser {
   roleTitle: string;
   permissionRole: PermissionRole;
   shift: string;
+  // Tambahkan ini jika Anda ingin menyimpan uid
+  // uid: string;
 }
 
 interface Colors {
@@ -49,7 +51,7 @@ const categoryEmojis: Record<string, string> = {
   "Factory Supervisor": "🏭",
   "Other": "📌"
 };
-const getCategoryEmoji = (category: string) => categoryEmojis[category] || "📌";
+const getCategoryEmoji = (category: string) => categoryEmojis[category] || "T"; // Ganti dengan 'T' jika tidak ditemukan
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
 const shifts = ["Day", "Night"];
@@ -329,11 +331,20 @@ export default function App() {
         const prefsDoc = await getDoc(doc(db, 'user_prefs', currentUser.name));
         if (prefsDoc.exists()) {
           const prefs = prefsDoc.data();
+          console.log("[BlueTick] user_prefs loaded:", prefs);
           if (prefs.theme) setTheme(prefs.theme as Theme);
           if (prefs.lang) setLang(prefs.lang as Lang);
           if (prefs.logo) setUserLogo(prefs.logo);
+          if (prefs.active_tab) setActiveTab(prefs.active_tab as Tab);
+        } else {
+          console.log("[BlueTick] user_prefs document does not exist yet for:", currentUser.name);
         }
+      } catch (prefsErr: any) {
+        console.error("[BlueTick] Failed to load user_prefs (logo/theme/lang/tab will not restore):", prefsErr);
+        // window.alert(`Gagal memuat preferensi (logo/tema): ${prefsErr.message || prefsErr}`); // Opsional: tampilkan alert
+      }
 
+      try {
         if (currentUser.permissionRole === "Admin") {
           const logsSnap = await getDocs(collection(db, 'activity_logs'));
           const logsData = logsSnap.docs.map(d => d.data()).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -389,9 +400,11 @@ export default function App() {
 
   useEffect(() => {
     if (currentUser) {
-      setDoc(doc(db, 'user_prefs', currentUser.name), { user_name: currentUser.name, theme, lang, logo: userLogo }, { merge: true });
+      const payload = { user_name: currentUser.name, theme, lang };
+      console.log("[BlueTick] WRITE user_prefs (theme/lang effect):", payload);
+      setDoc(doc(db, 'user_prefs', currentUser.name), payload, { merge: true });
     }
-  }, [currentUser, theme, lang, userLogo]);
+  }, [currentUser, theme, lang]);
 
   useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer); }, []);
   useEffect(() => { if (currentUser && !taskForm.assignee) setTaskForm((p: any) => ({ ...p, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "" })); }, [currentUser, taskForm.assignee]);
@@ -444,19 +457,46 @@ export default function App() {
     }
   };
 
+  const compressImageFile = (file: File, maxDim = 256, quality = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width, height = img.height;
+          if (width > height) {
+            if (width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+          } else {
+            if (height > maxDim) { width = Math.round(width * (maxDim / height)); height = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('Canvas not supported')); return; }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => reject(new Error('Gagal memuat gambar'));
+        img.src = ev.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Gagal membaca file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file || !currentUser) return;
-    const reader = new FileReader(); 
-    reader.onload = async (ev) => { 
-      const b64 = ev.target?.result as string; 
-      setUserLogo(b64); 
-      try {
-        await setDoc(doc(db, 'user_prefs', currentUser.name), { user_name: currentUser.name, logo: b64 }, { merge: true });
-      } catch (error) {
-        console.error("Logo upload error:", error);
-      }
-    }; 
-    reader.readAsDataURL(file);
+    try {
+      const b64 = await compressImageFile(file, 256, 0.7);
+      console.log("[BlueTick] Compressed logo size (KB):", Math.round(b64.length / 1024));
+      setUserLogo(b64);
+      await setDoc(doc(db, 'user_prefs', currentUser.name), { user_name: currentUser.name, logo: b64 }, { merge: true });
+      console.log("[BlueTick] Logo successfully saved to user_prefs for:", currentUser.name);
+    } catch (error: any) {
+      console.error("Logo upload error:", error);
+      window.alert(`Gagal menyimpan logo: ${error.message || error}`);
+    }
   };
 
   const handleCsvUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -464,61 +504,103 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
-        const lines = ((ev.target?.result as string).replace(/^\uFEFF/, '')).split(/\r?\n/).map(l => l.trim()).filter(l => l);
+        const text = (ev.target?.result as string).replace(/^\uFEFF/, '');
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
         if (lines.length < 2) return window.alert(t.csvError);
-        const parseLine = (l: string) => { const r: string[] = []; let c = '', q = false; for (let i = 0; i < l.length; i++) { const ch = l[i]; if (ch === '"') q = !q; else if (ch === ',' && !q) { r.push(c.trim()); c = ''; } else c += ch; } r.push(c.trim()); return r; };
-        const headers = parseLine(lines[0]).map(h => h.toLowerCase());
+
+        // Parsing header
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
         const newTasks: any[] = [];
+
+        // Fungsi parsing tanggal MM/DD/YYYY -> YYYY-MM-DD
+        const parseDate = (str: string): string => {
+          if (!str) return getToday();
+          const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          if (m) {
+            const [_, month, day, year] = m;
+            const formattedMonth = parseInt(month).toString().padStart(2, '0');
+            const formattedDay = parseInt(day).toString().padStart(2, '0');
+            return `${year}-${formattedMonth}-${formattedDay}`;
+          }
+          return getToday(); // fallback
+        };
+
+        // Fungsi format waktu H:MM -> HH:MM
+        const formatTime = (timeStr: string): string => {
+          if (!timeStr) return "";
+          const [hour, minute] = timeStr.split(':').map(Number);
+          if (isNaN(hour) || isNaN(minute)) return "";
+          return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        };
+
+        // Fungsi untuk mengambil nilai dari baris berdasarkan header
+        const getValue = (line: string, headerName: string) => {
+          const cols = line.split(',');
+          const headerIndex = headers.indexOf(headerName.toLowerCase());
+          return headerIndex >= 0 ? cols[headerIndex]?.trim() || '' : '';
+        };
+
         for (let i = 1; i < lines.length; i++) {
-          const cols = parseLine(lines[i]); if (cols.length < 2) continue;
-          const get = (keys: string[]) => { for (const k of keys) { const idx = headers.indexOf(k.toLowerCase()); if (idx >= 0) return (cols[idx] || '').trim(); } return ''; };
-          const rawTitle = get(['title', 'task', 'nama_task']); if (!rawTitle) continue;
-          const rawDate = get(['deadline', 'date', 'tanggal']);
-          
-          let st = get(['start_time', 'waktu_mulai', 'jam_mulai']), et = get(['end_time', 'waktu_selesai', 'jam_selesai']);
-          if (!st && !et) { const idx = headers.reduce((a: number[], v, i) => v === 'time' ? [...a, i] : a, []); if (idx.length >= 2) { st = cols[idx[0]]; et = cols[idx[1]]; } else if (idx.length === 1) st = cols[idx[0]]; }
-          
-          const cleanStartTime = st ? (st.replace('.', ':').slice(0, 5)) : null;
-          const cleanEndTime = et ? (et.replace('.', ':').slice(0, 5)) : null;
+          const line = lines[i];
+          if (!line.trim()) continue;
+
+          const rawTitle = getValue(line, 'title');
+          if (!rawTitle) continue; // Lewati jika title kosong
+
+          const rawDate = parseDate(getValue(line, 'date'));
+          const rawDeadline = parseDate(getValue(line, 'deadline'));
+          const st = getValue(line, 'start_time');
+          const et = getValue(line, 'end_time');
+          const rawCategory = getValue(line, 'category');
+          const rawPriority = getValue(line, 'priority');
+          const rawStatus = getValue(line, 'status');
+
+          // Format waktu
+          const cleanStartTime = formatTime(st);
+          const cleanEndTime = formatTime(et);
 
           newTasks.push({
-            id: String(Date.now() + Math.random()), 
-            title: rawTitle.replace(/[.,;:!]+$/, '').trim(), 
-            description: get(['description', 'deskripsi']) || '',
-            category: categories.find(c => c.toLowerCase() === get(['category', 'kategori', 'role']).toLowerCase()) || 'Other',
-            priority: (priorities.find(p => p.toLowerCase() === get(['priority', 'level']).toLowerCase()) || 'High'),
-            assignee: get(['assignee', 'pic']) || currentUser.name, 
-            deadline: rawDate || getToday(), 
-            date: rawDate || getToday(),
-            startTime: cleanStartTime, 
-            endTime: cleanEndTime,
-            status: (statuses.find(s => s.toLowerCase() === get(['status']).toLowerCase()) || 'Pending'),
-            notes: get(['notes', 'catatan']) || '', 
-            createdAt: getToday(), 
-            imageUrl: ''
+            id: String(Date.now() + Math.random()),
+            title: rawTitle.replace(/[.,;:!]+$/, '').trim(), // Bersihkan karakter akhir
+            date: rawDate,
+            deadline: rawDeadline,
+            startTime: cleanStartTime, // Simpan sebagai startTime
+            endTime: cleanEndTime,     // Simpan sebagai endTime
+            category: rawCategory,
+            priority: rawPriority,
+            status: rawStatus,
+            assignee: currentUser.name, // Isi otomatis dengan nama user
+            notes: "", // Default kosong
+            createdAt: getToday(),
+            user_name: currentUser.name, // Penting untuk filter
+            imageUrl: "" // Default kosong
           });
         }
-        if (!newTasks.length) return window.alert(t.noValidData);
-        
-        const mappedTasks = newTasks.map(tk => ({ ...tk, user_name: currentUser.name }));
-        
+
+        if (!newTasks.length) return window.alert("Tidak ada data valid.");
+
+        // Simpan ke Firebase
         const batch = writeBatch(db);
-        mappedTasks.forEach(tk => {
+        newTasks.forEach(tk => {
           const snaked = toSnakeCase(tk);
           const docRef = doc(collection(db, 'tasks'), snaked.id);
           batch.set(docRef, snaked);
         });
-        
+
         await batch.commit();
-        
-        setTasks(prev => [...mappedTasks, ...prev]);
+
+        // Update state lokal
+        setTasks(prev => [...newTasks, ...prev]);
         await addLog("CSV", `Imported ${newTasks.length} tasks from CSV`);
         window.alert(`✅ ${newTasks.length} ${t.csvSuccess}`);
-      } catch (err: any) { 
-        window.alert(`${t.csvError} Detail: ${err.message || err}`); 
+
+      } catch (err: any) {
+        console.error("CSV import error:", err);
+        window.alert(`${t.csvError} Detail: ${err.message || err}`);
       }
     };
-    reader.readAsText(file); e.target.value = '';
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleSaveTask = async () => {
@@ -599,7 +681,7 @@ export default function App() {
   };
 
   const shareWhatsApp = () => {
-    if(!currentUser) return;
+    if (!currentUser) return;
     const ownName = currentUser.name.trim().toLowerCase();
     const isOwnActivity = (assignee: string, userName?: string) => {
       const cleanAssignee = (assignee || "").trim().toLowerCase();
@@ -609,21 +691,24 @@ export default function App() {
     const statusLabelMap: Record<string, string> = { Pending: t.statusPending, "In progress": t.statusInProgress, Completed: t.statusCompleted, Cancelled: t.statusCancelled };
     const getStatusLabel = (s: string) => statusLabelMap[s] || s;
 
+    // --- FILTER BY selectedDate ---
     const todayTasks = tasks.filter(tk => tk.date === selectedDate && isOwnActivity(tk.assignee, tk.user_name));
     const todayStock = stockItems.filter((s: any) => s.date === selectedDate);
     const todayMeetings = meetings.filter((m: any) => m.date === selectedDate);
     const todayMaint = maintItems.filter((m: any) => m.date === selectedDate);
+    // --- END FILTER ---
 
-    const completedTasks = todayTasks.filter((tk: any) => tk.status === "Completed").map((tk: any) => `• ${getCategoryEmoji(tk.category)} ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('\n') || '-';
-    const pendingTasks = todayTasks.filter((tk: any) => tk.status !== "Completed" && tk.status !== "Cancelled").map((tk: any) => `• ${getCategoryEmoji(tk.category)} ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('\n') || '-';
-    const stockItemsText = todayStock.map((s: any) => `• 📦 ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('\n') || '-';
-    const maintItemsText = todayMaint.map((m: any) => `• 🔧 ${m.equipment} : ${m.issue} [${getStatusLabel(m.status)}]`).join('\n') || '-';
-    const meetingItemsText = todayMeetings.map((m: any) => `• 📝 ${m.title} (${m.time}) - ${m.attendees}`).join('\n') || '-';
+    const completedTasks = todayTasks.filter((tk: any) => tk.status === "Completed").map((tk: any) => `• [${getCategoryEmoji(tk.category)}] ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
+    const pendingTasks = todayTasks.filter((tk: any) => tk.status !== "Completed" && tk.status !== "Cancelled").map((tk: any) => `• [${getCategoryEmoji(tk.category)}] ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
+    const stockItemsText = todayStock.map((s: any) => `• [STK] ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('%0D%0A') || '-';
+    const maintItemsText = todayMaint.map((m: any) => `• [MTN] ${m.equipment} : ${m.issue} [${getStatusLabel(m.status)}]`).join('%0D%0A') || '-';
+    const meetingItemsText = todayMeetings.map((m: any) => `• [Mtg] ${m.title}${m.time ? ` (${m.time})` : ''}${m.attendees ? ` - ${m.attendees}` : ''}`).join('%0D%0A') || '-';
 
-    const reportLink = `https://rubenhae95-jpg.github.io/blue-tick-to-do/report/${selectedDate}/${encodeURIComponent(currentUser.name.toLowerCase().replace(/\s+/g, "-"))}`;
+    const reportLink = `https://rubenhae95-jpg.github.io/blue-tick-to-do/`;
 
-    const msg = `📋 ${t.waReportTitle}\n\n👤 ${t.waEmployee} : ${currentUser.name.toUpperCase()}\n💼 ${t.waRole} : ${currentUser.roleTitle}\n🕒 ${t.waShift} : ${currentUser.shift}\n📅 ${t.waDate} : ${formatDate(selectedDate)}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ ${t.waCompleted}\n${completedTasks}\n\n⏳ ${t.waPending}\n${pendingTasks}\n\n📦 ${t.waStock}\n${stockItemsText}\n\n🔧 ${t.waMaintenance}\n${maintItemsText}\n\n📝 ${t.waMeeting}\n${meetingItemsText}\n\n📌 ${t.waNotes}\n-\n\n━━━━━━━━━━━━━━━━━━\n\n📤 ${t.waSubmittedBy}: ${currentUser.name.toUpperCase()}\n🕒 ${t.waSubmitted}: ${formatDate(currentTime)} | ${currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}\n\n🔗 ${t.waViewReport}: ${reportLink}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    // Gunakan %0D%0A untuk newline agar tidak rusak di WA Web
+    const msg = `📋 ${t.waReportTitle}%0D%0A%0D%0A👤 ${t.waEmployee} : ${currentUser.name.toUpperCase()}%0D%0A💼 ${t.waRole} : ${currentUser.roleTitle}%0D%0A🕒 ${t.waShift} : ${currentUser.shift}%0D%0A📅 ${t.waDate} : ${formatDate(selectedDate)}%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A✅ ${t.waCompleted}%0D%0A${completedTasks}%0D%0A%0D%0A⏳ ${t.waPending}%0D%0A${pendingTasks}%0D%0A%0D%0A📦 ${t.waStock}%0D%0A${stockItemsText}%0D%0A%0D%0A🔧 ${t.waMaintenance}%0D%0A${maintItemsText}%0D%0A%0D%0A📅 ${t.waMeeting}%0D%0A${meetingItemsText}%0D%0A%0D%0A📌 ${t.waNotes}%0D%0A-%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A📤 ${t.waSubmittedBy}: ${currentUser.name.toUpperCase()}%0D%0A🕒 ${t.waSubmitted}: ${formatDate(currentTime)} | ${currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}%0D%0A%0D%0A🔗 ${t.waViewReport}: ${reportLink}`;
+    window.open(`https://wa.me/?text=${msg}`, "_blank");
   };
 
   const menuItems = [
@@ -648,7 +733,7 @@ export default function App() {
         .nav-item { padding: 14px 24px; color: ${colors.muted}; cursor: pointer; transition: .2s; border-left: 4px solid transparent; }
         .nav-item.active { background: ${colors.accentBg}; color: ${colors.accent}; border-left-color: ${colors.accent}; }
         .nav-item:hover { background: ${colors.cardMuted}; }
-        .main-content { flex: 1; padding: 20px; overflow-y: auto; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; max-width: 1200px; margin: 0 auto; width: 100%; boxSizing: border-box; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
         .stat-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; }
         .task-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
@@ -667,7 +752,7 @@ export default function App() {
           <button onClick={() => setMenuOpen(false)} style={{ background: "none", border: "none", color: colors.muted, fontSize: 28, cursor: "pointer" }}>×</button>
         </div>
         <nav style={{ padding: "16px 0", display: "grid", gap: 6, overflowY: "auto" }}>
-          {menuItems.map(i => <div key={i.id} className={`nav-item ${activeTab === i.id ? "active" : ""}`} onClick={() => { setActiveTab(i.id as Tab); setMenuOpen(false); }}>{i.label}</div>)}
+          {menuItems.map(i => <div key={i.id} className={`nav-item ${activeTab === i.id ? "active" : ""}`} onClick={() => { setActiveTab(i.id as Tab); setMenuOpen(false); if (currentUser) { const payload = { user_name: currentUser.name, active_tab: i.id }; console.log("[BlueTick] WRITE user_prefs (menu click):", payload); setDoc(doc(db, 'user_prefs', currentUser.name), payload, { merge: true }); } }}>{i.label}</div>)}
         </nav>
         <div style={{ padding: 20, marginTop: "auto", borderTop: `1px solid ${colors.border}` }}>
           <div style={{ fontSize: 14, color: colors.text, fontWeight: 600 }}>{formatDisplayName(currentUser.name)}</div>
@@ -763,6 +848,7 @@ export default function App() {
                           >
                             <div>
                               <div style={{fontWeight: 600}}>{tk.title}</div>
+                              <div style={{fontSize: 11, color: colors.muted}}>📅 {tk.date} | ⏰ {tk.startTime && tk.endTime ? `${tk.startTime}-${tk.endTime}` : tk.startTime || tk.endTime || 'N/A'}</div>
                               <div style={{fontSize: 11, color: colors.muted}}>{tk.date} [{tk.status}]</div>
                             </div>
                             {tk.imageUrl && <img src={tk.imageUrl} alt="img" style={{width: 28, height: 28, borderRadius: 4, objectFit: "cover"}} />}
@@ -879,7 +965,7 @@ export default function App() {
                     ) : (
                       <>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{tk.title}</span><span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{tk.status}</span></div>
-                        <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>{tk.category} · {tk.priority} · {formatDisplayName(tk.assignee)} · {formatTimeRange(tk)}</div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>{tk.category} · {tk.priority} · {formatDisplayName(tk.assignee)} · 📅 {tk.date} | ⏰ {tk.startTime && tk.endTime ? `${tk.startTime}-${tk.endTime}` : tk.startTime || tk.endTime || 'N/A'}</div>
                         {tk.imageUrl && <div style={{marginBottom: 10}}><img src={tk.imageUrl} alt="Task Image" style={{maxHeight: 120, borderRadius: 8, border: `1px solid ${colors.border}`}} /></div>}
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <button style={btnStyle(tk.status === "Completed" ? "secondary" : "primary")} onClick={() => toggleStatus(tk.id)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
