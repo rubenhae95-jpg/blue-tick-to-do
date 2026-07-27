@@ -17,8 +17,6 @@ interface CurrentUser {
   roleTitle: string;
   permissionRole: PermissionRole;
   shift: string;
-  // Tambahkan ini jika Anda ingin menyimpan uid
-  // uid: string;
 }
 
 interface Colors {
@@ -51,7 +49,7 @@ const categoryEmojis: Record<string, string> = {
   "Factory Supervisor": "🏭",
   "Other": "📌"
 };
-const getCategoryEmoji = (category: string) => categoryEmojis[category] || "T"; // Ganti dengan 'T' jika tidak ditemukan
+const getCategoryEmoji = (category: string) => categoryEmojis[category] || "T";
 const priorities: Priority[] = ["High", "Medium", "Low"];
 const statuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Cancelled"];
 const shifts = ["Day", "Night"];
@@ -134,7 +132,7 @@ const translations = {
 
 const getToday = () => new Date().toISOString().slice(0, 10);
 const formatDate = (d: string | Date) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-const formatTimeRange = (t: any) => t.startTime && t.endTime ? `(${t.startTime}-${t.endTime})` : "";
+const formatTimeRange = (t: any) => t.start_time && t.end_time ? `(${t.start_time}-${t.end_time})` : "";
 const formatDateTime = (iso: string) => new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 const getColors = (theme: Theme): Colors => theme === "light"
   ? { page: "#F8FAFC", card: "#FFFFFF", cardMuted: "#F1F5F9", text: "#0F172A", muted: "#64748B", border: "#E2E8F0", accent: "#0EA5E9", accentBg: "#E0F2FE", danger: "#EF4444", success: "#10B981", warning: "#F59E0B" }
@@ -297,7 +295,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [filterStat, setFilterStat] = useState("All");
   
-  const [taskForm, setTaskForm] = useState<any>({ title: "", category: "Production", priority: "High", assignee: "", deadline: getToday(), date: getToday(), startTime: "", endTime: "", status: "Pending", notes: "", createdAt: getToday(), imageUrl: "" });
+  const [taskForm, setTaskForm] = useState<any>({ title: "", category: "Production", priority: "High", assignee: "", deadline: getToday(), date: getToday(), start_time: "", end_time: "", status: "Pending", notes: "", createdAt: getToday(), imageUrl: "" });
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
@@ -341,7 +339,6 @@ export default function App() {
         }
       } catch (prefsErr: any) {
         console.error("[BlueTick] Failed to load user_prefs (logo/theme/lang/tab will not restore):", prefsErr);
-        // window.alert(`Gagal memuat preferensi (logo/tema): ${prefsErr.message || prefsErr}`); // Opsional: tampilkan alert
       }
 
       try {
@@ -561,19 +558,19 @@ export default function App() {
 
           newTasks.push({
             id: String(Date.now() + Math.random()),
-            title: rawTitle.replace(/[.,;:!]+$/, '').trim(), // Bersihkan karakter akhir
+            title: rawTitle.replace(/[.,;:!]+$/, '').trim(),
             date: rawDate,
             deadline: rawDeadline,
-            startTime: cleanStartTime, // Simpan sebagai startTime
-            endTime: cleanEndTime,     // Simpan sebagai endTime
+            start_time: cleanStartTime,
+            end_time: cleanEndTime,
             category: rawCategory,
             priority: rawPriority,
             status: rawStatus,
-            assignee: currentUser.name, // Isi otomatis dengan nama user
-            notes: "", // Default kosong
+            assignee: currentUser.name,
+            notes: "",
             createdAt: getToday(),
-            user_name: currentUser.name, // Penting untuk filter
-            imageUrl: "" // Default kosong
+            user_name: currentUser.name,
+            imageUrl: ""
           });
         }
 
@@ -613,7 +610,7 @@ export default function App() {
       
       setTasks(p => [newTask, ...p]);
       await addLog("TASK", `Created: ${newTask.title}`);
-      setTaskForm({ title: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: selectedDate, date: selectedDate, startTime: "", endTime: "", status: "Pending", notes: "", createdAt: getToday(), imageUrl: "" });
+      setTaskForm({ title: "", category: "Production", priority: "High", assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "", deadline: selectedDate, date: selectedDate, start_time: "", end_time: "", status: "Pending", notes: "", createdAt: getToday(), imageUrl: "" });
       window.alert(`✅ ${t.taskSavedMsg}`);
     } catch (e: any) { 
       console.error("Error saving task:", e.message || e); 
@@ -698,15 +695,14 @@ export default function App() {
     const todayMaint = maintItems.filter((m: any) => m.date === selectedDate);
     // --- END FILTER ---
 
-    const completedTasks = todayTasks.filter((tk: any) => tk.status === "Completed").map((tk: any) => `• [${getCategoryEmoji(tk.category)}] ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
-    const pendingTasks = todayTasks.filter((tk: any) => tk.status !== "Completed" && tk.status !== "Cancelled").map((tk: any) => `• [${getCategoryEmoji(tk.category)}] ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
-    const stockItemsText = todayStock.map((s: any) => `• [STK] ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('%0D%0A') || '-';
-    const maintItemsText = todayMaint.map((m: any) => `• [MTN] ${m.equipment} : ${m.issue} [${getStatusLabel(m.status)}]`).join('%0D%0A') || '-';
-    const meetingItemsText = todayMeetings.map((m: any) => `• [Mtg] ${m.title}${m.time ? ` (${m.time})` : ''}${m.attendees ? ` - ${m.attendees}` : ''}`).join('%0D%0A') || '-';
+    const completedTasks = todayTasks.filter((tk: any) => tk.status === "Completed").map((tk: any) => `• ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
+    const pendingTasks = todayTasks.filter((tk: any) => tk.status !== "Completed" && tk.status !== "Cancelled").map((tk: any) => `• ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
+    const stockItemsText = todayStock.map((s: any) => `• ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('%0D%0A') || '-';
+    const maintItemsText = todayMaint.map((m: any) => `• ${m.equipment} : ${m.issue} [${getStatusLabel(m.status)}]`).join('%0D%0A') || '-';
+    const meetingItemsText = todayMeetings.map((m: any) => `• ${m.title}${m.time ? ` (${m.time})` : ''}${m.attendees ? ` - ${m.attendees}` : ''}`).join('%0D%0A') || '-';
 
     const reportLink = `https://rubenhae95-jpg.github.io/blue-tick-to-do/`;
 
-    // Gunakan %0D%0A untuk newline agar tidak rusak di WA Web
     const msg = `📋 ${t.waReportTitle}%0D%0A%0D%0A👤 ${t.waEmployee} : ${currentUser.name.toUpperCase()}%0D%0A💼 ${t.waRole} : ${currentUser.roleTitle}%0D%0A🕒 ${t.waShift} : ${currentUser.shift}%0D%0A📅 ${t.waDate} : ${formatDate(selectedDate)}%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A✅ ${t.waCompleted}%0D%0A${completedTasks}%0D%0A%0D%0A⏳ ${t.waPending}%0D%0A${pendingTasks}%0D%0A%0D%0A📦 ${t.waStock}%0D%0A${stockItemsText}%0D%0A%0D%0A🔧 ${t.waMaintenance}%0D%0A${maintItemsText}%0D%0A%0D%0A📅 ${t.waMeeting}%0D%0A${meetingItemsText}%0D%0A%0D%0A📌 ${t.waNotes}%0D%0A-%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A📤 ${t.waSubmittedBy}: ${currentUser.name.toUpperCase()}%0D%0A🕒 ${t.waSubmitted}: ${formatDate(currentTime)} | ${currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}%0D%0A%0D%0A🔗 ${t.waViewReport}: ${reportLink}`;
     window.open(`https://wa.me/?text=${msg}`, "_blank");
   };
@@ -848,7 +844,7 @@ export default function App() {
                           >
                             <div>
                               <div style={{fontWeight: 600}}>{tk.title}</div>
-                              <div style={{fontSize: 11, color: colors.muted}}>📅 {tk.date} | ⏰ {tk.startTime && tk.endTime ? `${tk.startTime}-${tk.endTime}` : tk.startTime || tk.endTime || 'N/A'}</div>
+                              <div style={{fontSize: 11, color: colors.muted}}>📅 {tk.date} | ⏰ {tk.start_time && tk.end_time ? `${tk.start_time}-${tk.end_time}` : tk.start_time || tk.end_time || 'N/A'}</div>
                               <div style={{fontSize: 11, color: colors.muted}}>{tk.date} [{tk.status}]</div>
                             </div>
                             {tk.imageUrl && <img src={tk.imageUrl} alt="img" style={{width: 28, height: 28, borderRadius: 4, objectFit: "cover"}} />}
@@ -947,8 +943,8 @@ export default function App() {
                       <div className="form-grid">
                         <input style={inputStyle} value={editForm.title || ""} onChange={e => setEditForm((p: any) => ({ ...p, title: e.target.value }))} />
                         <input style={inputStyle} type="date" value={editForm.date || tk.date} onChange={e => setEditForm((p: any) => ({ ...p, date: e.target.value, deadline: e.target.value }))} />
-                        <input style={inputStyle} type="time" value={editForm.startTime || ""} onChange={e => setEditForm((p: any) => ({ ...p, startTime: e.target.value }))} />
-                        <input style={inputStyle} type="time" value={editForm.endTime || ""} onChange={e => setEditForm((p: any) => ({ ...p, endTime: e.target.value }))} />
+                        <input style={inputStyle} type="time" value={editForm.start_time || ""} onChange={e => setEditForm((p: any) => ({ ...p, start_time: e.target.value }))} />
+                        <input style={inputStyle} type="time" value={editForm.end_time || ""} onChange={e => setEditForm((p: any) => ({ ...p, end_time: e.target.value }))} />
                         <select style={inputStyle} value={editForm.status || tk.status} onChange={e => setEditForm((p: any) => ({ ...p, status: e.target.value }))}>{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select>
                         <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 10 }}>
                           <label style={{...btnStyle("secondary"), cursor: "pointer", display: "flex", alignItems: "center", gap: 5}}>
@@ -965,7 +961,7 @@ export default function App() {
                     ) : (
                       <>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{tk.title}</span><span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{tk.status}</span></div>
-                        <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>{tk.category} · {tk.priority} · {formatDisplayName(tk.assignee)} · 📅 {tk.date} | ⏰ {tk.startTime && tk.endTime ? `${tk.startTime}-${tk.endTime}` : tk.startTime || tk.endTime || 'N/A'}</div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>{tk.category} · {tk.priority} · {formatDisplayName(tk.assignee)} · 📅 {tk.date} | ⏰ {tk.start_time && tk.end_time ? `${tk.start_time}-${tk.end_time}` : tk.start_time || tk.end_time || 'N/A'}</div>
                         {tk.imageUrl && <div style={{marginBottom: 10}}><img src={tk.imageUrl} alt="Task Image" style={{maxHeight: 120, borderRadius: 8, border: `1px solid ${colors.border}`}} /></div>}
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <button style={btnStyle(tk.status === "Completed" ? "secondary" : "primary")} onClick={() => toggleStatus(tk.id)}>{tk.status === "Completed" ? t.undo : t.checklist}</button>
@@ -990,8 +986,8 @@ export default function App() {
                   <input style={inputStyle} value={taskForm.title || ""} onChange={e => setTaskForm((p: any) => ({ ...p, title: e.target.value }))} placeholder={t.titlePlaceholder} />
                   <input style={inputStyle} value={taskForm.assignee || ""} onChange={e => setTaskForm((p: any) => ({ ...p, assignee: e.target.value }))} placeholder={t.assigneePlaceholder} disabled={currentUser.permissionRole === "Staff"} />
                   <input style={inputStyle} value={taskForm.date || selectedDate} onChange={e => setTaskForm((p: any) => ({ ...p, date: e.target.value, deadline: e.target.value }))} type="date" />
-                  <input style={inputStyle} value={taskForm.startTime || ""} onChange={e => setTaskForm((p: any) => ({ ...p, startTime: e.target.value }))} type="time" />
-                  <input style={inputStyle} value={taskForm.endTime || ""} onChange={e => setTaskForm((p: any) => ({ ...p, endTime: e.target.value }))} type="time" />
+                  <input style={inputStyle} value={taskForm.start_time || ""} onChange={e => setTaskForm((p: any) => ({ ...p, start_time: e.target.value }))} type="time" />
+                  <input style={inputStyle} value={taskForm.end_time || ""} onChange={e => setTaskForm((p: any) => ({ ...p, end_time: e.target.value }))} type="time" />
                   <select style={inputStyle} value={taskForm.category || "Production"} onChange={e => setTaskForm((p: any) => ({ ...p, category: e.target.value }))}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
                   <select style={inputStyle} value={taskForm.priority || "High"} onChange={e => setTaskForm((p: any) => ({ ...p, priority: e.target.value as Priority }))}>{priorities.map(p => <option key={p} value={p}>{p}</option>)}</select>
                   
