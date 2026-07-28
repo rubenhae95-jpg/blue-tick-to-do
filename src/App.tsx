@@ -64,7 +64,7 @@ const statusColors: Record<TaskStatus, { bg: string; text: string }> = {
 
 const translations = {
   id: {
-    dashboard: "Dashboard", tasks: "Tasks", stock: "Stok Opname", meeting: "Meeting Notes", maintenance: "Maintenance",
+    dashboard: "Dashboard", tasks: "Tasks", stock: "Stok", meeting: "Meeting Notes", maintenance: "Maintenance",
     activityLog: "Activity Log", settings: "Pengaturan",
     total: "Total", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
     progress: "Total Progress Semua Task", share: "Share", addTask: "Tambah Task", edit: "Edit", save: "Simpan", cancel: "Batal", delete: "Hapus",
@@ -86,12 +86,12 @@ const translations = {
     noValidData: "Tidak ada data valid.", taskSavedMsg: "Task berhasil disimpan!", meetingSavedMsg: "Berhasil disimpan!",
     dashTasks: "Tasks", dashStock: "Stok", dashMeetings: "Meeting", dashMaintenance: "Maintenance",
     waReportTitle: "LAPORAN TASK HARIAN", waEmployee: "Karyawan", waRole: "Jabatan", waShift: "Shift", waDate: "Tanggal",
-    waCompleted: "SELESAI", waPending: "PENDING / BERLANGSUNG", waStock: "STOK OPNAME", waMaintenance: "MAINTENANCE",
+    waCompleted: "SELESAI", waPending: "PENDING / BERLANGSUNG", waStock: "STOCK", waMaintenance: "MAINTENANCE",
     waMeeting: "MEETING", waNotes: "CATATAN", waSubmittedBy: "Dikirim oleh", waSubmitted: "Dikirim", waViewReport: "Lihat laporan",
     statusPending: "Tertunda", statusInProgress: "Berlangsung", statusCompleted: "Selesai", statusCancelled: "Dibatalkan"
   },
   en: {
-    dashboard: "Dashboard", tasks: "Tasks", stock: "Stock Opname", meeting: "Meeting Notes", maintenance: "Maintenance",
+    dashboard: "Dashboard", tasks: "Tasks", stock: "Stock", meeting: "Meeting Notes", maintenance: "Maintenance",
     activityLog: "Activity Log", settings: "Settings",
     total: "Total", completed: "Completed", remaining: "Remaining", cancelled: "Cancelled",
     progress: "Overall Task Progress", share: "Share", addTask: "Add Task", edit: "Edit", save: "Save", cancel: "Cancel", delete: "Delete",
@@ -113,7 +113,7 @@ const translations = {
     noValidData: "No valid data found.", taskSavedMsg: "Task saved successfully!", meetingSavedMsg: "Saved successfully!",
     dashTasks: "Tasks", dashStock: "Stock", dashMeetings: "Meetings", dashMaintenance: "Maintenance",
     waReportTitle: "DAILY TASK REPORT", waEmployee: "Employee", waRole: "Role", waShift: "Shift", waDate: "Date",
-    waCompleted: "COMPLETED", waPending: "PENDING / IN PROGRESS", waStock: "STOCK OPNAME", waMaintenance: "MAINTENANCE",
+    waCompleted: "COMPLETED", waPending: "PENDING / IN PROGRESS", waStock: "STOCK", waMaintenance: "MAINTENANCE",
     waMeeting: "MEETING", waNotes: "NOTES", waSubmittedBy: "Submitted by", waSubmitted: "Submitted", waViewReport: "View report",
     statusPending: "Pending", statusInProgress: "In Progress", statusCompleted: "Completed", statusCancelled: "Cancelled"
   },
@@ -292,6 +292,13 @@ export default function App() {
   const [meetingForm, setMeetingForm] = useState({ title: "", date: getToday(), time: "", attendees: "", notes: "" });
   const [maintForm, setMaintForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending", date: getToday(), notes: "", imageUrl: "" });
 
+  // State tambahan untuk fitur baru
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [selectedStockItem, setSelectedStockItem] = useState<string | null>(null);
+  const [addItemName, setAddItemName] = useState(""); // ✅ NEW: nama item terpisah
+  const [addStockMasuk, setAddStockMasuk] = useState("");
+  const [addStockKeluar, setAddStockKeluar] = useState("");
+
   const [tasks, setTasks] = useState<any[]>([]);
   const [stockItems, setStockItems] = useState<any[]>([]);
   const [meetings, setMeetings] = useState<any[]>([]);
@@ -299,7 +306,7 @@ export default function App() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [allUsersList, setAllUsersList] = useState<any[]>([]);
 
-  // Load session
+  // Load session & logo
   useEffect(() => {
     const session = localStorage.getItem('btice_session');
     if (session) {
@@ -308,6 +315,27 @@ export default function App() {
       } catch (e) { console.error("Session parse error"); }
     }
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadLogo = async () => {
+      try {
+        const prefsDoc = await getDoc(doc(db, 'user_prefs', currentUser.name));
+        if (prefsDoc.exists()) {
+          const prefs = prefsDoc.data();
+          setUserLogo(prefs.logo || DEFAULT_LOGO); // fallback ke DEFAULT_LOGO
+        } else {
+          setUserLogo(DEFAULT_LOGO);
+        }
+      } catch (err) {
+        console.error("Failed to load logo:", err);
+        setUserLogo(DEFAULT_LOGO);
+      }
+    };
+
+    loadLogo();
+  }, [currentUser]);
 
   // Reload data from Firebase
   useEffect(() => {
@@ -321,13 +349,10 @@ export default function App() {
           console.log("[BlueTick] user_prefs loaded:", prefs);
           if (prefs.theme) setTheme(prefs.theme as Theme);
           if (prefs.lang) setLang(prefs.lang as Lang);
-          if (prefs.logo) setUserLogo(prefs.logo);
           if (prefs.active_tab) setActiveTab(prefs.active_tab as Tab);
-        } else {
-          console.log("[BlueTick] user_prefs document does not exist yet for:", currentUser.name);
         }
       } catch (prefsErr: any) {
-        console.error("[BlueTick] Failed to load user_prefs (logo/theme/lang/tab will not restore):", prefsErr);
+        console.error("[BlueTick] Failed to load user_prefs:", prefsErr);
       }
 
       try {
@@ -394,7 +419,7 @@ export default function App() {
 
   useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer); }, []);
   useEffect(() => { if (currentUser && !taskForm.assignee) setTaskForm((p: any) => ({ ...p, assignee: currentUser.permissionRole === "Staff" ? currentUser.name : "" })); }, [currentUser, taskForm.assignee]);
-  useEffect(() => { setMeetingForm(p => ({ ...p, date: selectedDate })); setStockForm(p => ({ ...p, date: selectedDate })); setMaintForm((p: any) => ({ ...p, date: selectedDate })); }, [selectedDate]);
+  useEffect(() => { setMeetingForm(p => ({ ...p, date: selectedDate })); setMaintForm((p: any) => ({ ...p, date: selectedDate })); }, [selectedDate]);
 
   const handleLogin = (user: CurrentUser) => {
     localStorage.setItem('btice_session', JSON.stringify(user));
@@ -679,20 +704,43 @@ export default function App() {
 
     // --- FILTER BY selectedDate ---
     const todayTasks = tasks.filter(tk => tk.date === selectedDate && isOwnActivity(tk.assignee, tk.user_name));
-    const todayStock = stockItems.filter((s: any) => s.date === selectedDate);
+    const allStock = stockItems; 
     const todayMeetings = meetings.filter((m: any) => m.date === selectedDate);
     const todayMaint = maintItems.filter((m: any) => m.date === selectedDate);
     // --- END FILTER ---
 
+    // Build notes list (✅ semua notes ditampilkan)
+    const notesLines: string[] = [];
+
+    todayTasks.forEach(tk => {
+      if (tk.notes && tk.notes.trim()) {
+        notesLines.push(`• [T] ${tk.title} → ${tk.notes.trim()}`);
+      }
+    });
+
+    todayMeetings.forEach(m => {
+      if (m.notes && m.notes.trim()) {
+        notesLines.push(`• [M] ${m.title} → ${m.notes.trim()}`);
+      }
+    });
+
+    todayMaint.forEach(m => {
+      if (m.notes && m.notes.trim()) {
+        notesLines.push(`• [MTN] ${m.equipment} → ${m.notes.trim()}`);
+      }
+    });
+
+    const notesSection = notesLines.length > 0 ? `%0D%0A📌 ${t.waNotes}%0D%0A${notesLines.join('%0D%0A')}` : "";
+
     const completedTasks = todayTasks.filter((tk: any) => tk.status === "Completed").map((tk: any) => `• ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
     const pendingTasks = todayTasks.filter((tk: any) => tk.status !== "Completed" && tk.status !== "Cancelled").map((tk: any) => `• ${tk.title} [${getStatusLabel(tk.status)}] ${formatTimeRange(tk)}`).join('%0D%0A') || '-';
-    const stockItemsText = todayStock.map((s: any) => `• ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('%0D%0A') || '-';
+    const stockItemsText = allStock.map((s: any) => `• ${s.item} : ${s.stock + s.masuk - s.keluar} ${s.unit}`).join('%0D%0A') || '-';
     const maintItemsText = todayMaint.map((m: any) => `• ${m.equipment} : ${m.issue} [${getStatusLabel(m.status)}]`).join('%0D%0A') || '-';
-    const meetingItemsText = todayMeetings.map((m: any) => `• ${m.title}${m.time ? ` (${m.time})` : ''}${m.attendees ? ` - ${m.attendees}` : ''}`).join('%0D%0A') || '-';
+    const meetingItemsText = todayMeetings.map((m: any) => `• ${m.title}${m.time ? ` (${m.time})` : ''}${m.attendees ? ` - ${m.attendees}`: ''}`).join('%0D%0A') || '-';
 
     const reportLink = `https://rubenhae95-jpg.github.io/blue-tick-to-do/`;
 
-    const msg = `📋 ${t.waReportTitle}%0D%0A%0D%0A👤 ${t.waEmployee} : ${currentUser.name.toUpperCase()}%0D%0A💼 ${t.waRole} : ${currentUser.roleTitle}%0D%0A🕒 ${t.waShift} : ${currentUser.shift}%0D%0A📅 ${t.waDate} : ${formatDate(selectedDate)}%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A✅ ${t.waCompleted}%0D%0A${completedTasks}%0D%0A%0D%0A⏳ ${t.waPending}%0D%0A${pendingTasks}%0D%0A%0D%0A📦 ${t.waStock}%0D%0A${stockItemsText}%0D%0A%0D%0A🔧 ${t.waMaintenance}%0D%0A${maintItemsText}%0D%0A%0D%0A📅 ${t.waMeeting}%0D%0A${meetingItemsText}%0D%0A%0D%0A📌 ${t.waNotes}%0D%0A-%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A📤 ${t.waSubmittedBy}: ${currentUser.name.toUpperCase()}%0D%0A🕒 ${t.waSubmitted}: ${formatDate(currentTime)} | ${currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}%0D%0A%0D%0A🔗 ${t.waViewReport}: ${reportLink}`;
+    const msg = `📋 ${t.waReportTitle}%0D%0A%0D%0A👤 ${t.waEmployee} : ${currentUser.name.toUpperCase()}%0D%0A💼 ${t.waRole} : ${currentUser.roleTitle}%0D%0A🕒 ${t.waShift} : ${currentUser.shift}%0D%0A📅 ${t.waDate} : ${formatDate(selectedDate)}%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A✅ ${t.waCompleted}%0D%0A${completedTasks}%0D%0A%0D%0A⏳ ${t.waPending}%0D%0A${pendingTasks}%0D%0A%0D%0A📦 ${t.waStock}%0D%0A${stockItemsText}%0D%0A%0D%0A🔧 ${t.waMaintenance}%0D%0A${maintItemsText}%0D%0A%0D%0A📅 ${t.waMeeting}%0D%0A${meetingItemsText}${notesSection}%0D%0A%0D%0A━━━━━━━━━━━━━━━━━━%0D%0A%0D%0A📤 ${t.waSubmittedBy}: ${currentUser.name.toUpperCase()}%0D%0A🕒 ${t.waSubmitted}: ${formatDate(currentTime)} | ${currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}%0D%0A%0D%0A🔗 ${t.waViewReport}: ${reportLink}`;
     window.open(`https://wa.me/?text=${msg}`, "_blank");
   };
 
@@ -710,25 +758,201 @@ export default function App() {
 
   if (!currentUser) return <LoginScreen colors={colors} onLogin={handleLogin} t={t} />;
 
+  // Perubahan: Fungsi untuk menangani "Tambah Stok"
+  const handleShowAddStock = () => {
+    setShowAddStockModal(true);
+    setSelectedStockItem(null);
+    setAddItemName("");
+    setAddStockMasuk("");
+    setAddStockKeluar("");
+  };
+
+  const handleSelectStockItem = (itemName: string) => {
+    setSelectedStockItem(itemName);
+  };
+
+  const handleSaveStockInOut = async () => {
+    if (!selectedStockItem) {
+      window.alert("Pilih item terlebih dahulu.");
+      return;
+    }
+
+    const masuk = parseInt(addStockMasuk) || 0;
+    const keluar = parseInt(addStockKeluar) || 0;
+
+    if (masuk === 0 && keluar === 0) {
+      window.alert("Masukkan jumlah masuk atau keluar.");
+      return;
+    }
+
+    // ✅ Nama item terpisah: gunakan addItemName (bukan addStockMasuk)
+    const itemName = selectedStockItem === "__NEW__"
+      ? (addItemName.trim() || "Item Baru") // Default "Item Baru" jika kosong
+      : selectedStockItem;
+
+    const existingItem = stockItems.find(si => si.item === itemName && si.user_name === currentUser.name);
+
+    if (!existingItem) {
+      // Item baru
+      const newItem = {
+        id: String(Date.now()),
+        item: itemName,
+        unit: "unit",
+        stock: 0,
+        masuk,
+        keluar,
+        updatedAt: getToday(),
+        user_name: currentUser.name,
+        notes: ""
+      };
+      try {
+        const snaked = toSnakeCase(newItem);
+        await setDoc(doc(db, 'stock_items', snaked.id), snaked);
+        setStockItems(p => [newItem, ...p]);
+        await addLog("STOCK", `Added new stock item: ${newItem.item}, in: ${masuk}, out: ${keluar}`);
+        window.alert(`✅ Item "${newItem.item}" ditambahkan.`);
+      } catch (e: any) {
+        console.error("Error saving new stock item:", e);
+        window.alert(`Gagal menyimpan: ${e.message}`);
+      }
+    } else {
+      // Item lama
+      const newMasuk = existingItem.masuk + masuk;
+      const newKeluar = existingItem.keluar + keluar;
+      try {
+        await updateDoc(doc(db, 'stock_items', existingItem.id), { masuk: newMasuk, keluar: newKeluar, updatedAt: getToday() });
+        setStockItems(p => p.map(i => i.id === existingItem.id ? { ...i, masuk: newMasuk, keluar: newKeluar, updatedAt: getToday() } : i));
+        await addLog("STOCK", `Updated stock for: ${existingItem.item}, in: ${masuk}, out: ${keluar}`);
+        window.alert(`✅ Stok "${existingItem.item}" diperbarui.`);
+      } catch (e: any) {
+        console.error("Error updating stock item:", e);
+        window.alert(`Gagal memperbarui: ${e.message}`);
+      }
+    }
+
+    // Reset
+    setSelectedStockItem(null);
+    setAddItemName("");
+    setAddStockMasuk("");
+    setAddStockKeluar("");
+    setShowAddStockModal(false);
+  };
+
+  // Ambil semua item stok untuk dropdown
+  const allStockItemNames = [...new Set(stockItems.map(si => si.item))];
+
   return (
     <div style={{ minHeight: "100vh", background: colors.page, color: colors.text, fontFamily: "'Inter', system-ui, sans-serif", display: "flex", position: "relative" }}>
       <style>{`
-        .nav-overlay { position: fixed; top: 0; left: 0; bottom: 0; width: 260px; max-width: 75%; background: ${colors.card}; z-index: 60; transform: translateX(-100%); transition: .3s; display: flex; flex-direction: column; border-right: 1px solid ${colors.border}; }
-        .nav-overlay.open { transform: translateX(0); }
-        .nav-item { padding: 14px 24px; color: ${colors.muted}; cursor: pointer; transition: .2s; border-left: 4px solid transparent; }
-        .nav-item.active { background: ${colors.accentBg}; color: ${colors.accent}; border-left-color: ${colors.accent}; }
-        .nav-item:hover { background: ${colors.cardMuted}; }
-        .main-content { flex: 1; padding: 20px; overflow-y: auto; max-width: 1200px; margin: 0 auto; width: 100%; boxSizing: border-box; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
-        .stat-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; }
-        .task-card { background: ${colors.card}; border: 1px solid ${colors.border}; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-        .clickable-item { transition: 0.2s; }
-        .clickable-item:hover { background: ${colors.cardMuted}; border-color: ${colors.accent}; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 12px; }
-        .split-grid { display: grid; gap: 16px; grid-template-columns: 1.2fr 1fr; }
-        @media(max-width:768px){ .main-content{padding:12px} header{flex-direction:column;gap:10px;padding:14px} .header-right{width:100%;justify-content:space-between;flex-wrap:wrap} .stats-grid{grid-template-columns:1fr 1fr} .split-grid{grid-template-columns:1fr} .form-grid{grid-template-columns:repeat(auto-fit, minmax(140px, 1fr))} }
-        @media(max-width:480px){ .main-content{padding:10px} .stat-card{padding:10px} .task-card{padding:12px} .stats-grid{gap:8px} .form-grid{grid-template-columns:1fr;gap:8px} h1{font-size:1.15rem !important} .nav-overlay{width:230px} button{font-size:12px} }
-        input[type="date"], input[type="time"], select { color-scheme: ${theme}; }
+        .nav-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 260px;
+          max-width: 75%;
+          background: ${colors.card}; /* ✅ Background normal */
+          z-index: 60;
+          transform: translateX(-100%);
+          transition: .3s;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid ${colors.border};
+        }
+        .nav-overlay.open {
+          transform: translateX(0);
+        }
+        .nav-item {
+          padding: 14px 24px;
+          color: ${colors.muted};
+          cursor: pointer;
+          transition: .2s;
+          border-left: 4px solid transparent;
+        }
+        .nav-item.active {
+          background: ${colors.accentBg};
+          color: ${colors.accent};
+          border-left-color: ${colors.accent};
+        }
+        .nav-item:hover {
+          background: ${colors.cardMuted};
+        }
+        .main-content {
+          flex: 1;
+          padding: 20px;
+          overflow-y: auto;
+          max-width: 1200px;
+          margin: 0 auto;
+          width: 100%;
+          boxSizing: border-box;
+        }
+        header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          background: ${colors.card};
+          border-bottom: 1px solid ${colors.border};
+          color: ${colors.text};
+        }
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+          gap: 12px;
+          margin-bottom: 20px;
+        }
+        .stat-card {
+          background: ${colors.card};
+          border: 1px solid ${colors.border};
+          border-radius: 12px;
+          padding: 14px;
+        }
+        .task-card {
+          background: ${colors.card};
+          border: 1px solid ${colors.border};
+          border-radius: 12px;
+          padding: 14px;
+          margin-bottom: 12px;
+        }
+        .clickable-item {
+          transition: 0.2s;
+        }
+        .clickable-item:hover {
+          background: ${colors.cardMuted};
+          border-color: ${colors.accent};
+        }
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+        .split-grid {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: 1.2fr 1fr;
+        }
+        @media(max-width:768px){
+          .main-content{padding:12px}
+          header{flex-direction:column;gap:10px;padding:14px}
+          .header-right{width:100%;justify-content:space-between;flex-wrap:wrap}
+          .stats-grid{grid-template-columns:1fr 1fr}
+          .split-grid{grid-template-columns:1fr}
+          .form-grid{grid-template-columns:repeat(auto-fit, minmax(140px, 1fr))}
+        }
+        @media(max-width:480px){
+          .main-content{padding:10px}
+          .stat-card{padding:10px}
+          .task-card{padding:12px}
+          .stats-grid{gap:8px}
+          .form-grid{grid-template-columns:1fr;gap:8px}
+          h1{font-size:1.15rem !important}
+          .nav-overlay{width:230px}
+          button{font-size:12px}
+        }
+        input[type="date"], input[type="time"], select {
+          color-scheme: ${theme};
+        }
       `}</style>
 
       <div className={`nav-overlay ${isMenuOpen ? "open" : ""}`}>
@@ -768,7 +992,7 @@ export default function App() {
           {/* Dashboard */}
           {activeTab === "dashboard" && (() => {
             const dashboardTasks = tasks.filter(tk => matchesUser(tk.assignee));
-            const dashboardStock = stockItems;
+            const allStock = stockItems; 
             const dashboardMeetings = meetings;
             const dashboardMaint = maintItems;
 
@@ -843,19 +1067,19 @@ export default function App() {
                     </div>
                   )}
 
-                  {dashboardStock.length > 0 && (
+                  {allStock.length > 0 && (
                     <div className="task-card">
                       <b style={{display: 'block', marginBottom: 10}}>{t.dashStock}</b>
                       <div style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: 5 }}>
-                        {dashboardStock.map((s: any) => (
+                        {allStock.map((s: any) => (
                           <div 
                             key={s.id} 
                             className="clickable-item"
                             style={{ fontSize: 13, marginTop: 8, padding: 10, background: colors.cardMuted, borderRadius: 8, cursor: "pointer", border: `1px solid transparent` }}
-                            onClick={() => { setActiveTab("stock"); setSelectedDate(s.date); }}
+                            onClick={() => { setActiveTab("stock"); }}
                           >
                             <div style={{fontWeight: 600}}>{s.item}: {s.stock + s.masuk - s.keluar} {s.unit}</div>
-                            <div style={{fontSize: 11, color: colors.muted}}>{s.date}</div>
+                            <div style={{fontSize: 11, color: colors.muted}}>{s.updatedAt || s.date}</div>
                           </div>
                         ))}
                       </div>
@@ -903,7 +1127,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                {totalTasks === 0 && dashboardStock.length === 0 && dashboardMeetings.length === 0 && dashboardMaint.length === 0 && <div style={{ textAlign: "center", padding: 40, color: colors.muted }}>{t.noTasks}</div>}
+                {totalTasks === 0 && allStock.length === 0 && dashboardMeetings.length === 0 && dashboardMaint.length === 0 && <div style={{ textAlign: "center", padding: 40, color: colors.muted }}>{t.noTasks}</div>}
               </>
             );
           })()}
@@ -999,7 +1223,7 @@ export default function App() {
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 }}>
                 <div style={{ fontWeight: 600, marginBottom: 12 }}>{t.stock}</div>
                 <div style={{ display: "grid", gap: 12 }}>
-                  {stockItems.filter((s: any) => s.date === selectedDate).map((s: any) => {
+                  {stockItems.map((s: any) => {
                     const current = s.stock + s.masuk - s.keluar;
                     return (
                       <div key={s.id} className="task-card">
@@ -1007,68 +1231,74 @@ export default function App() {
                           <span style={{ fontWeight: 600 }}>{s.item}</span>
                           <span style={{ fontWeight: 700, color: current <= 0 ? colors.danger : colors.accent }}>{current} {s.unit}</span>
                         </div>
-                        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { 
-                            const v = prompt(`Tambah ${t.incoming} (${s.item}):`, "0"); 
-                            if(v!==null){ 
-                              const n=Number(v); 
-                              try { 
-                                await updateDoc(doc(db, 'stock_items', s.id), { masuk: s.masuk+n, updated_at: getToday() });
-                                setStockItems(p=>p.map((i: any)=>i.id===s.id?{...i,masuk:i.masuk+n,updatedAt:getToday()}:i)); 
-                                await addLog("STOCK", `Added ${n} to ${s.item}`); 
-                              } catch(e: any){console.error("Error updating stock:", e); window.alert(e.message);} 
-                            } 
-                          }}>{t.incoming}</button>
-                          
-                          <button style={{ ...btnStyle("secondary"), flex: 1 }} onClick={async () => { 
-                            const v = prompt(`Tambah ${t.outgoing} (${s.item}):`, "0"); 
-                            if(v!==null){ 
-                              const n=Number(v); 
-                              try { 
-                                await updateDoc(doc(db, 'stock_items', s.id), { keluar: s.keluar+n, updated_at: getToday() });
-                                setStockItems(p=>p.map((i: any)=>i.id===s.id?{...i,keluar:i.keluar+n,updatedAt:getToday()}:i)); 
-                                await addLog("STOCK", `Removed ${n} from ${s.item}`); 
-                              } catch(e: any){console.error("Error updating stock:", e); window.alert(e.message);} 
-                            } 
-                          }}>{t.outgoing}</button>
-                        </div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Awal: {s.stock} | Masuk: +{s.masuk} | Keluar: -{s.keluar}</div>
                         {s.notes && <div style={{ fontSize: 12, color: colors.muted }}>{s.notes}</div>}
-                        <button style={{ ...btnStyle("danger"), marginTop: 8, fontSize: 12 }} onClick={async () => { 
-                          try { 
-                            await deleteDoc(doc(db, 'stock_items', s.id));
-                            setStockItems(p => p.filter((i: any) => i.id !== s.id)); 
-                            addLog("STOCK", `Deleted item ${s.item}`); 
-                          } catch(e: any){console.error("Error deleting stock:", e); window.alert(e.message);} 
-                        }}>{t.deleteItem}</button>
                       </div>
                     );
                   })}
-                  {stockItems.filter((s: any) => s.date === selectedDate).length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noStock}</div>}
+                  {stockItems.length === 0 && <div style={{ color: colors.muted, textAlign: "center", padding: 20 }}>{t.noStock}</div>}
                 </div>
               </div>
               <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16, height: "fit-content" }}>
-                <div style={{ fontWeight: 600, marginBottom: 10 }}>{t.addNewItem}</div>
-                <input style={inputStyle} value={stockForm.date} onChange={e => setStockForm(p => ({ ...p, date: e.target.value }))} type="date" />
-                <input style={inputStyle} value={stockForm.item} onChange={e => setStockForm(p => ({ ...p, item: e.target.value }))} placeholder={t.itemName} />
-                <input style={inputStyle} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))} placeholder={t.unit} />
-                <input style={inputStyle} value={stockForm.stock} onChange={e => setStockForm(p => ({ ...p, stock: e.target.value }))} placeholder={t.initialStock} type="number" />
-                <textarea style={{ ...inputStyle, minHeight: 50, marginTop: 8 }} value={stockForm.notes} onChange={e => setStockForm(p => ({ ...p, notes: e.target.value }))} placeholder={t.notesPlaceholder} />
-                <button style={{ ...btnStyle("primary"), width: "100%", marginTop: 12 }} onClick={async () => {
-                  if (!stockForm.item.trim() || !currentUser) return window.alert(t.alertTitleRequired);
-                  const newItem = { id: String(Date.now()), ...stockForm, stock: Number(stockForm.stock) || 0, masuk: 0, keluar: 0, updatedAt: getToday(), user_name: currentUser.name };
-                  
-                  try {
-                    const snaked = toSnakeCase(newItem);
-                    await setDoc(doc(db, 'stock_items', snaked.id), snaked);
-                    
-                    setStockItems(p => [newItem, ...p]);
-                    await addLog("STOCK", `Added new item: ${newItem.item}`);
-                    setStockForm({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", date: getToday() });
-                  } catch (e: any) { 
-                    console.error("Error saving stock item:", e.message || e); 
-                    window.alert(`Gagal menyimpan item: ${e.message}`); 
-                  }
-                }}>{t.addNewItem}</button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t.addNewItem}</h2>
+                  <button style={btnStyle("secondary")} onClick={handleShowAddStock}>{t.addNewItem}</button>
+                </div>
+
+                {showAddStockModal && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>Pilih Item</div>
+                    <select style={inputStyle} value={selectedStockItem || ""} onChange={e => handleSelectStockItem(e.target.value)}>
+                      <option value="">Pilih...</option>
+                      <option value="__NEW__">Item Baru</option>
+                      {allStockItemNames.map(name => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                    {selectedStockItem && selectedStockItem !== "__NEW__" && (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4 }}>{t.incoming}</label>
+                            <input type="number" value={addStockMasuk} onChange={e => setAddStockMasuk(e.target.value)} style={inputStyle} />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4 }}>{t.outgoing}</label>
+                            <input type="number" value={addStockKeluar} onChange={e => setAddStockKeluar(e.target.value)} style={inputStyle} />
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                          <button style={btnStyle("primary")} onClick={handleSaveStockInOut}>{t.save}</button>
+                          <button style={btnStyle("secondary")} onClick={() => { setShowAddStockModal(false); setSelectedStockItem(null); }}>{t.cancel}</button>
+                        </div>
+                      </>
+                    )}
+                    {selectedStockItem === "__NEW__" && (
+                      <div>
+                        {/* ✅ Nama item terpisah */}
+                        <input
+                          type="text"
+                          placeholder={t.itemName}
+                          value={addItemName}
+                          onChange={e => setAddItemName(e.target.value)}
+                          style={inputStyle}
+                        />
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4 }}>{t.incoming}</label>
+                            <input type="number" value={addStockMasuk} onChange={e => setAddStockMasuk(e.target.value)} style={inputStyle} />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4 }}>{t.outgoing}</label>
+                            <input type="number" value={addStockKeluar} onChange={e => setAddStockKeluar(e.target.value)} style={inputStyle} />
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                          <button style={btnStyle("primary")} onClick={handleSaveStockInOut}>{t.save}</button>
+                          <button style={btnStyle("secondary")} onClick={() => { setShowAddStockModal(false); setSelectedStockItem(null); setAddItemName(""); }}>{t.cancel}</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
