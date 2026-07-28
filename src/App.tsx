@@ -288,7 +288,9 @@ export default function App() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
-  const [stockForm, setStockForm] = useState({ item: "", unit: "", stock: "", masuk: "", keluar: "", notes: "", date: getToday() });
+  // Hapus ini: const [stockForm, setStockForm] = useState({...});
+  // Karena tidak digunakan dan menyebabkan error build.
+
   const [meetingForm, setMeetingForm] = useState({ title: "", date: getToday(), time: "", attendees: "", notes: "" });
   const [maintForm, setMaintForm] = useState({ equipment: "", issue: "", technician: "", status: "Pending", date: getToday(), notes: "", imageUrl: "" });
 
